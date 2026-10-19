@@ -13,8 +13,15 @@
   --badge-private: #34d399;
   --badge-biz: #f59e0b;
   --danger: #ef4444;
-  --time-col-w: 52px;
+  --time-col-w: 42px; /* スマホ向けにスリム化 */
   --cell-height: 44px;
+}
+
+@media (max-width: 480px) {
+  :root {
+    --time-col-w: 36px;
+    --cell-height: 40px;
+  }
 }
 
 * {
@@ -236,7 +243,7 @@ select option {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  overflow-x: auto;
+  overflow-x: hidden; /* 横スクロールを完全排除して誤作動防止 */
   position: relative;
   -webkit-overflow-scrolling: touch;
 }
@@ -244,7 +251,7 @@ select option {
 /* カレンダー曜日ヘッダー */
 .grid-header {
   display: grid;
-  grid-template-columns: var(--time-col-w) repeat(7, minmax(80px, 1fr));
+  grid-template-columns: var(--time-col-w) repeat(7, 1fr);
   background: var(--bg-surface);
   border-bottom: 2px solid var(--border-color);
   position: sticky;
@@ -253,13 +260,14 @@ select option {
 }
 
 .header-cell {
-  padding: 10px 4px;
+  padding: 8px 1px;
   text-align: center;
   border-right: 1px solid var(--border-color);
+  overflow: hidden;
 }
 
 .header-cell.time-corner {
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
   display: flex;
   align-items: center;
@@ -267,26 +275,26 @@ select option {
 }
 
 .header-cell .day-name {
-  font-size: 0.75rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
   text-transform: uppercase;
   font-weight: 600;
 }
 
 .header-cell .day-number {
-  font-size: 1.1rem;
+  font-size: 1rem;
   font-weight: 700;
-  margin-top: 2px;
+  margin-top: 1px;
 }
 
 .header-cell.is-today .day-number {
   color: var(--accent);
   background: rgba(56, 189, 248, 0.15);
   border-radius: 50%;
-  width: 28px;
-  height: 28px;
-  line-height: 28px;
-  margin: 2px auto 0;
+  width: 24px;
+  height: 24px;
+  line-height: 24px;
+  margin: 1px auto 0;
 }
 
 .header-cell.is-sat .day-name { color: #60a5fa; }
@@ -295,7 +303,7 @@ select option {
 /* グリッド本体 */
 .grid-body {
   display: grid;
-  grid-template-columns: var(--time-col-w) repeat(7, minmax(80px, 1fr));
+  grid-template-columns: var(--time-col-w) repeat(7, 1fr);
   position: relative;
   background: var(--bg-primary);
   touch-action: none;
@@ -310,10 +318,10 @@ select option {
 
 .time-slot-label {
   height: var(--cell-height);
-  font-size: 0.72rem;
+  font-size: 0.68rem;
   color: var(--text-muted);
   text-align: right;
-  padding-right: 6px;
+  padding-right: 4px;
   padding-top: 2px;
   border-bottom: 1px dashed rgba(51, 65, 85, 0.5);
 }
@@ -368,56 +376,58 @@ select option {
 /* 登録待ち（確定前の未送信ブロック：薄い赤＆赤い点線） */
 .pending-block {
   position: absolute;
-  left: 3px;
-  right: 3px;
-  border-radius: 6px;
-  padding: 4px 6px;
-  font-size: 0.75rem;
+  left: 2px;
+  right: 2px;
+  border-radius: 4px;
+  padding: 2px 3px;
+  font-size: 0.7rem;
   z-index: 15;
   color: #fff;
-  background: rgba(239, 68, 68, 0.28);
-  border: 2px dashed #ef4444;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
+  background: rgba(239, 68, 68, 0.32);
+  border: 1.5px dashed #ef4444;
+  box-shadow: 0 2px 8px rgba(239, 68, 68, 0.25);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
   animation: pendingPulseRed 2s infinite ease-in-out;
   cursor: pointer;
+  overflow: hidden;
 }
 
 @keyframes pendingPulseRed {
   0%, 100% { 
     border-color: #ef4444; 
-    box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+    box-shadow: 0 0 6px rgba(239, 68, 68, 0.3);
   }
   50% { 
     border-color: #fca5a5; 
-    box-shadow: 0 0 14px rgba(239, 68, 68, 0.5);
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.5);
   }
 }
 
 .pending-block .block-badge {
-  font-size: 0.65rem;
+  font-size: 0.6rem;
   background: #dc2626;
   color: #fff;
-  padding: 1px 5px;
-  border-radius: 4px;
+  padding: 1px 3px;
+  border-radius: 3px;
   display: inline-block;
-  margin-bottom: 2px;
+  margin-bottom: 1px;
   font-weight: 700;
+  line-height: 1.1;
 }
 
 .pending-block .del-btn {
   position: absolute;
-  top: 2px;
-  right: 4px;
-  background: rgba(0,0,0,0.45);
+  top: 1px;
+  right: 1px;
+  background: rgba(0,0,0,0.5);
   border: none;
   color: #fff;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   border-radius: 50%;
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -432,34 +442,35 @@ select option {
 /* 確定登録済みブロック（鮮やかな青） */
 .committed-block {
   position: absolute;
-  left: 3px;
-  right: 3px;
-  border-radius: 6px;
-  padding: 4px 6px;
-  font-size: 0.75rem;
+  left: 2px;
+  right: 2px;
+  border-radius: 4px;
+  padding: 2px 3px;
+  font-size: 0.7rem;
   z-index: 5;
   color: #fff;
   background: linear-gradient(135deg, rgba(2, 132, 199, 0.9), rgba(14, 165, 233, 0.85));
   border: 1px solid #38bdf8;
-  border-left: 4px solid #38bdf8;
+  border-left: 3px solid #38bdf8;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+  overflow: hidden;
 }
 
 .committed-block .del-btn {
   position: absolute;
-  top: 2px;
-  right: 4px;
-  background: rgba(0, 0, 0, 0.3);
+  top: 1px;
+  right: 1px;
+  background: rgba(0, 0, 0, 0.35);
   border: none;
   color: rgba(255,255,255,0.85);
-  font-size: 0.9rem;
+  font-size: 0.8rem;
   cursor: pointer;
   border-radius: 50%;
-  width: 18px;
-  height: 18px;
+  width: 15px;
+  height: 15px;
   display: flex;
   align-items: center;
   justify-content: center;
