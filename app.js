@@ -16,7 +16,15 @@ const END_HOUR = 24; // 7:00 〜 24:00 (17時間)
 const SLOT_MINUTES = 30; // 30分単位
 const SLOTS_PER_HOUR = 60 / SLOT_MINUTES;
 const TOTAL_SLOTS = (END_HOUR - START_HOUR) * SLOTS_PER_HOUR;
-const CELL_HEIGHT = 44; // px
+
+// 画面の実測セル高さを取得（ズレを完全排除）
+function getActualCellHeight() {
+  const sampleCell = document.querySelector('.slot-cell');
+  if (sampleCell && sampleCell.offsetHeight > 0) {
+    return sampleCell.offsetHeight;
+  }
+  return 44;
+}
 
 let currentWeekOffset = 0; // 0 = 今週
 let isDragging = false;
@@ -282,8 +290,9 @@ function renderCommittedEventsForDay(colEl, dateStr) {
 
     const startSlots = startMinutes / SLOT_MINUTES;
     const durationSlots = (endMinutes - startMinutes) / SLOT_MINUTES;
-    const topPx = startSlots * CELL_HEIGHT;
-    const heightPx = Math.max(durationSlots * CELL_HEIGHT - 2, 24);
+    const cellH = getActualCellHeight();
+    const topPx = startSlots * cellH;
+    const heightPx = Math.max(durationSlots * cellH - 2, 24);
 
     const block = document.createElement('div');
     block.className = `committed-block ${evt.category || 'work'}`;
@@ -301,9 +310,10 @@ function renderCommittedEventsForDay(colEl, dateStr) {
 // 未送信キューの描画（クリックでタイトル再編集可能）
 function renderPendingSchedulesForDay(colEl, dateStr) {
   const list = pendingSchedules.filter(p => p.dateStr === dateStr);
+  const cellH = getActualCellHeight();
   list.forEach(p => {
-    const topPx = p.startSlot * CELL_HEIGHT;
-    const heightPx = (p.endSlot - p.startSlot + 1) * CELL_HEIGHT;
+    const topPx = p.startSlot * cellH;
+    const heightPx = (p.endSlot - p.startSlot + 1) * cellH;
 
     const startTimeStr = formatTime(p.startSlot);
     const endTimeStr = formatTime(p.endSlot + 1);
@@ -444,8 +454,9 @@ function updateActiveDragOverlay() {
   const targetCol = gridBody.querySelector(`.day-column[data-day-index="${dragStart.dayIndex}"]`);
   if (!targetCol) return;
 
-  const topPx = minSlot * CELL_HEIGHT;
-  const heightPx = (maxSlot - minSlot + 1) * CELL_HEIGHT;
+  const cellH = getActualCellHeight();
+  const topPx = minSlot * cellH;
+  const heightPx = (maxSlot - minSlot + 1) * cellH;
 
   const startTimeStr = formatTime(minSlot);
   const endTimeStr = formatTime(maxSlot + 1);
