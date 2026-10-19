@@ -1,0 +1,445 @@
+:root {
+  --bg-primary: #0f172a;
+  --bg-surface: #1e293b;
+  --bg-card: #182234;
+  --border-color: #334155;
+  --text-main: #f8fafc;
+  --text-muted: #94a3b8;
+  --accent: #38bdf8;
+  --accent-hover: #0ea5e9;
+  --selection: rgba(56, 189, 248, 0.35);
+  --selection-border: #38bdf8;
+  --badge-work: #38bdf8;
+  --badge-private: #34d399;
+  --badge-biz: #f59e0b;
+  --danger: #ef4444;
+  --time-col-w: 52px;
+  --cell-height: 44px;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  user-select: none;
+  -webkit-user-select: none;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+
+body {
+  background: var(--bg-primary);
+  color: var(--text-main);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow-x: hidden;
+}
+
+/* ヘッダー */
+header {
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border-color);
+  padding: 12px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.brand-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.logo-badge {
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  color: #fff;
+  font-weight: 800;
+  font-size: 0.85rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  letter-spacing: 0.05em;
+}
+
+.app-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.02em;
+}
+
+/* コントロールエリア */
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.calendar-select-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.calendar-select-wrap label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+select {
+  background: transparent;
+  color: var(--text-main);
+  border: none;
+  font-size: 0.88rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+}
+
+select option {
+  background: var(--bg-surface);
+  color: var(--text-main);
+}
+
+.nav-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border-radius: 8px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-color);
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.btn-icon:hover {
+  background: var(--border-color);
+}
+
+.current-week-label {
+  font-size: 0.88rem;
+  font-weight: 600;
+  min-width: 130px;
+  text-align: center;
+  color: var(--accent);
+}
+
+.btn-sync {
+  background: linear-gradient(135deg, #0284c7, #38bdf8);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  box-shadow: 0 2px 8px rgba(56, 189, 248, 0.3);
+  transition: all 0.2s;
+}
+
+.btn-sync:hover {
+  opacity: 0.95;
+  transform: translateY(-1px);
+}
+
+.btn-sync:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* 情報バナー */
+.status-banner {
+  background: rgba(15, 23, 42, 0.85);
+  border-bottom: 1px solid var(--border-color);
+  padding: 8px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  color: var(--text-muted);
+}
+
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.status-pill::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  background: #38bdf8;
+  border-radius: 50%;
+  box-shadow: 0 0 8px #38bdf8;
+}
+
+/* カレンダー本体 */
+.calendar-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  overflow-x: auto;
+  position: relative;
+}
+
+/* カレンダー曜日ヘッダー */
+.grid-header {
+  display: grid;
+  grid-template-columns: var(--time-col-w) repeat(7, minmax(80px, 1fr));
+  background: var(--bg-surface);
+  border-bottom: 2px solid var(--border-color);
+  position: sticky;
+  top: 0;
+  z-index: 20;
+}
+
+.header-cell {
+  padding: 10px 4px;
+  text-align: center;
+  border-right: 1px solid var(--border-color);
+}
+
+.header-cell.time-corner {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.header-cell .day-name {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.header-cell .day-number {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-top: 2px;
+}
+
+.header-cell.is-today .day-number {
+  color: var(--accent);
+  background: rgba(56, 189, 248, 0.15);
+  border-radius: 50%;
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  margin: 2px auto 0;
+}
+
+.header-cell.is-sat .day-name { color: #60a5fa; }
+.header-cell.is-sun .day-name { color: #f87171; }
+
+/* グリッド本体 */
+.grid-body {
+  display: grid;
+  grid-template-columns: var(--time-col-w) repeat(7, minmax(80px, 1fr));
+  position: relative;
+  background: var(--bg-primary);
+  touch-action: none;
+}
+
+.time-labels {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-color);
+  background: var(--bg-surface);
+}
+
+.time-slot-label {
+  height: var(--cell-height);
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  text-align: right;
+  padding-right: 6px;
+  padding-top: 2px;
+  border-bottom: 1px dashed rgba(51, 65, 85, 0.5);
+}
+
+.day-column {
+  border-right: 1px solid var(--border-color);
+  position: relative;
+}
+
+.slot-cell {
+  height: var(--cell-height);
+  border-bottom: 1px dashed rgba(51, 65, 85, 0.5);
+  position: relative;
+  box-sizing: border-box;
+  transition: background 0.1s;
+}
+
+.slot-cell:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+/* 選択中のブロック */
+.selection-overlay {
+  position: absolute;
+  background: var(--selection);
+  border: 2px solid var(--selection-border);
+  border-radius: 6px;
+  pointer-events: none;
+  z-index: 10;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
+  display: flex;
+  flex-direction: column;
+  padding: 4px 8px;
+  box-sizing: border-box;
+  color: #fff;
+}
+
+.selection-overlay .sel-title {
+  font-size: 0.75rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.selection-overlay .sel-time {
+  font-size: 0.68rem;
+  opacity: 0.9;
+}
+
+/* 確定登録済みブロック */
+.committed-block {
+  position: absolute;
+  left: 3px;
+  right: 3px;
+  border-radius: 6px;
+  padding: 4px 6px;
+  font-size: 0.75rem;
+  z-index: 5;
+  color: #fff;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+  border-left: 4px solid #fff;
+}
+
+.committed-block.work {
+  background: rgba(14, 165, 233, 0.85);
+  border-color: #38bdf8;
+}
+.committed-block.private {
+  background: rgba(16, 185, 129, 0.85);
+  border-color: #34d399;
+}
+.committed-block.business {
+  background: rgba(245, 158, 11, 0.85);
+  border-color: #fbbf24;
+}
+
+.committed-block .del-btn {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.8);
+  font-size: 0.9rem;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.committed-block .del-btn:hover {
+  color: #ff4d4f;
+}
+
+/* フッターアクションバー */
+.footer-bar {
+  background: var(--bg-surface);
+  border-top: 1px solid var(--border-color);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  z-index: 30;
+}
+
+.selected-summary {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.selected-summary span {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.btn-clear {
+  background: transparent;
+  border: 1px solid var(--border-color);
+  color: var(--text-muted);
+  padding: 6px 12px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  cursor: pointer;
+}
+.btn-clear:hover {
+  color: var(--text-main);
+  border-color: var(--text-muted);
+}
+
+/* トースト通知 */
+#toast {
+  position: fixed;
+  bottom: 70px;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  background: #0284c7;
+  color: #fff;
+  padding: 10px 20px;
+  border-radius: 30px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: all 0.3s ease;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#toast.show {
+  transform: translateX(-50%) translateY(0);
+  opacity: 1;
+}

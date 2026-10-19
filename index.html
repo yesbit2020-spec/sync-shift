@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>sync-shift | タイムスケジュール・カレンダー同期</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- ヘッダー -->
+  <header>
+    <div class="brand-group">
+      <span class="logo-badge">SYNC-SHIFT</span>
+      <h1 class="app-title">タイムスケジュール連携</h1>
+    </div>
+
+    <div class="controls">
+      <!-- カレンダー選択 -->
+      <div class="calendar-select-wrap">
+        <label for="calendarSelect">連携先:</label>
+        <select id="calendarSelect">
+          <option value="work" data-color="work">バイト・勤務用 (Work)</option>
+          <option value="private" data-color="private">プライベート (Private)</option>
+          <option value="business" data-color="business">事業・プロジェクト (Biz)</option>
+        </select>
+      </div>
+
+      <!-- 週切り替えナビゲーション -->
+      <div class="nav-group">
+        <button class="btn-icon" id="prevWeekBtn" title="前の週">◀</button>
+        <div class="current-week-label" id="weekRangeLabel">2026/10/19 - 10/25</div>
+        <button class="btn-icon" id="nextWeekBtn" title="次の週">▶</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ステータスバー -->
+  <div class="status-banner">
+    <div class="status-pill">Google Calendar API: 準備完了 (モック稼働中)</div>
+    <div>🖱 ドラッグ / 👆 タッチで矩形選択</div>
+  </div>
+
+  <!-- カレンダーグリッド -->
+  <div class="calendar-container" id="calendarContainer">
+    <div class="grid-header" id="gridHeader">
+      <div class="header-cell time-corner">時刻</div>
+      <!-- 7日分のヘッダーがJSで生成されます -->
+    </div>
+
+    <div class="grid-body" id="gridBody">
+      <!-- 時刻ラベル列 -->
+      <div class="time-labels" id="timeLabels"></div>
+      <!-- 7日分のグリッド列がJSで生成されます -->
+    </div>
+  </div>
+
+  <!-- フッターバー -->
+  <div class="footer-bar">
+    <div class="selected-summary" id="selectionInfo">
+      未選択 (画面をなぞって時間帯を指定)
+    </div>
+    <div style="display:flex; gap:8px;">
+      <button class="btn-clear" id="clearBtn">選択解除</button>
+      <button class="btn-sync" id="submitBtn" disabled>
+        <span>Googleカレンダーへ一括登録</span>
+      </button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
