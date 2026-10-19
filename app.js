@@ -70,7 +70,7 @@ const modalCancelBtn = document.getElementById('modalCancelBtn');
 const modalSaveBtn = document.getElementById('modalSaveBtn');
 
 // ==========================================
-// Google Identity Services (GIS) 認証処理
+// Google Identity Services (GIS) 認証処理 & 自動再接続
 // ==========================================
 function initGoogleAuth() {
   if (typeof google === 'undefined') {
@@ -83,18 +83,48 @@ function initGoogleAuth() {
     scope: SCOPES,
     callback: async (tokenResponse) => {
       if (tokenResponse.error !== undefined) {
-        showToast('Google認証エラー: ' + tokenResponse.error);
+        console.warn('Auto auth error:', tokenResponse.error);
         return;
       }
       accessToken = tokenResponse.access_token;
-      authBtn.classList.add('connected');
-      authBtnText.textContent = 'Google連携中 ✓';
-      showToast('⚡ Googleアカウントの認証に成功しました！');
+      
+      // 有効期限（通常3600秒）を保存
+      const expiresInMs = (tokenResponse.expires_in || 3600) * 1000;
+      const expireTime = Date.now() + expiresInMs;
+      localStorage.setItem('syncshift_token', accessToken);
+      localStorage.setItem('syncshift_expire', expireTime.toString());
+
+      setConnectedUI();
+      showToast('⚡ Googleカレンダーと自動同期しました！');
       
       await loadCalendarList();
       await loadCalendarEvents();
     },
   });
+
+  // 起動時の自動再接続チェック
+  checkAutoLogin();
+}
+
+function setConnectedUI() {
+  authBtn.classList.add('connected');
+  authBtnText.textContent = 'Google連携中 ✓';
+}
+
+function checkAutoLogin() {
+  const savedToken = localStorage.getItem('syncshift_token');
+  const savedExpire = parseInt(localStorage.getItem('syncshift_expire') || '0', 10);
+
+  // トークンが生きていれば即座に復帰
+  if (savedToken && Date.now() < savedExpire - 60000) {
+    accessToken = savedToken;
+    setConnectedUI();
+    loadCalendarList();
+    loadCalendarEvents();
+  } else if (tokenClient) {
+    // 期限切れの場合、サイレント更新（ダイアログなしで再取得）
+    tokenClient.requestAccessToken({ prompt: '' });
+  }
 }
 
 authBtn.addEventListener('click', () => {
@@ -102,6 +132,7 @@ authBtn.addEventListener('click', () => {
     showToast('Google SDK初期化中... 少々お待ちください');
     return;
   }
+  // 手動クリック時はダイアログを出して確実に更新
   tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
 });
 
