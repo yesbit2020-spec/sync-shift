@@ -127,6 +127,12 @@ select {
   overflow: hidden;
 }
 
+select option {
+  background-color: #1e293b !important;
+  color: #f8fafc !important;
+  padding: 8px 10px;
+}
+
 .nav-group {
   display: flex;
   align-items: center;
