@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <title>sync-shift | タイムスケジュール・カレンダー同期</title>
   <link rel="stylesheet" href="style.css">
+  <!-- Google Identity Services -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
 
@@ -16,20 +18,26 @@
     </div>
 
     <div class="controls">
+      <!-- Google 認証ボタン / 連携状態 -->
+      <button class="btn-auth" id="authBtn">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
+        </svg>
+        <span id="authBtnText">Googleと連携</span>
+      </button>
+
       <!-- カレンダー選択 -->
       <div class="calendar-select-wrap">
         <label for="calendarSelect">連携先:</label>
         <select id="calendarSelect">
-          <option value="work" data-color="work">バイト・勤務用 (Work)</option>
-          <option value="private" data-color="private">プライベート (Private)</option>
-          <option value="business" data-color="business">事業・プロジェクト (Biz)</option>
+          <option value="primary">メインカレンダー</option>
         </select>
       </div>
 
       <!-- 週切り替えナビゲーション -->
       <div class="nav-group">
         <button class="btn-icon" id="prevWeekBtn" title="前の週">◀</button>
-        <div class="current-week-label" id="weekRangeLabel">2026/10/19 - 10/25</div>
+        <div class="current-week-label" id="weekRangeLabel">読み込み中...</div>
         <button class="btn-icon" id="nextWeekBtn" title="次の週">▶</button>
       </div>
     </div>
