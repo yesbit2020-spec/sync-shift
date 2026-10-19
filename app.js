@@ -1,4 +1,7 @@
-// sync-shift アプリケーションコアロジック (Google Calendar API 連携版)
+// sync-shift アプリケーションコアロジック
+// - 複数スケジュール連続ドラッグ選択（キューイング）
+// - 見切れ時のドラッグ自動スクロール (Auto-Scroll)
+// - Google Calendar API 一括バッチ登録
 
 // === 認証設定 ===
 const CLIENT_ID = '107057563168-ocp8fupandai0hima45lpvl1ut070crk.apps.googleusercontent.com';
@@ -19,12 +22,19 @@ let currentWeekOffset = 0; // 0 = 今週
 let isDragging = false;
 let dragStart = null;
 let dragCurrent = null;
-let currentSelection = null;
 
-// カレンダーイベントキャッシュ
+// ★ 複数選択用キュー: 画面上でドラッグして追加した「未送信」の予定リスト
+let pendingSchedules = [];
+
+// Googleカレンダーから取得した「確定済み」イベントリスト
 let calendarEvents = [];
 
+// 自動スクロール用インターバル & ポインタ位置
+let autoScrollTimer = null;
+let lastPointerClientY = 0;
+
 // DOM要素
+const calendarContainer = document.getElementById('calendarContainer');
 const gridHeader = document.getElementById('gridHeader');
 const gridBody = document.getElementById('gridBody');
 const timeLabels = document.getElementById('timeLabels');
@@ -61,9 +71,7 @@ function initGoogleAuth() {
       authBtnText.textContent = 'Google連携中 ✓';
       showToast('⚡ Googleアカウントの認証に成功しました！');
       
-      // カレンダー一覧を取得
       await loadCalendarList();
-      // 表示中の週のイベントを取得
       await loadCalendarEvents();
     },
   });
@@ -71,14 +79,12 @@ function initGoogleAuth() {
 
 authBtn.addEventListener('click', () => {
   if (!tokenClient) {
-    showToast('Google SDKの初期化中です。少々お待ちください。');
+    showToast('Google SDK初期化中... 少々お待ちください');
     return;
   }
-  // トークン取得ダイアログ表示
   tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
 });
 
-// カレンダー一覧の取得
 async function loadCalendarList() {
   if (!accessToken) return;
   try {
@@ -98,11 +104,9 @@ async function loadCalendarList() {
     }
   } catch (err) {
     console.error('Failed to load calendars', err);
-    showToast('カレンダー一覧の取得に失敗しました');
   }
 }
 
-// 選択中週の既存予定を取得
 async function loadCalendarEvents() {
   if (!accessToken) return;
 
@@ -124,7 +128,7 @@ async function loadCalendarEvents() {
     calendarEvents = [];
     if (data.items) {
       data.items.forEach(item => {
-        if (!item.start.dateTime) return; // 終日予定は一旦スキップ
+        if (!item.start.dateTime) return;
         const start = new Date(item.start.dateTime);
         const end = new Date(item.end.dateTime);
 
@@ -146,14 +150,12 @@ async function loadCalendarEvents() {
   }
 }
 
-// カレンダー変更時にイベント再取得
 calendarSelect.addEventListener('change', () => {
   if (accessToken) loadCalendarEvents();
-  if (currentSelection) updateSelectionOverlay();
 });
 
 // ==========================================
-// カレンダー描画 & 日付ロジック
+// 日付 & カレンダー描画
 // ==========================================
 function getWeekDates(offsetWeeks = 0) {
   const now = new Date();
@@ -246,24 +248,28 @@ function renderWeek() {
       col.appendChild(slotCell);
     }
 
+    // 確定済みイベント描画
     renderCommittedEventsForDay(col, dateStr);
+
+    // 未送信キューのブロックを描画
+    renderPendingSchedulesForDay(col, dateStr);
+
     gridBody.appendChild(col);
   });
 
-  clearSelection();
+  updateFooterSummary();
 }
 
+// 確定済みイベント
 function renderCommittedEventsForDay(colEl, dateStr) {
   const events = calendarEvents.filter(e => e.dateStr === dateStr);
   events.forEach(evt => {
     const startMinutes = (evt.startHour * 60 + evt.startMin) - (START_HOUR * 60);
     const endMinutes = (evt.endHour * 60 + evt.endMin) - (START_HOUR * 60);
-
     if (startMinutes < 0 || endMinutes <= startMinutes) return;
 
     const startSlots = startMinutes / SLOT_MINUTES;
     const durationSlots = (endMinutes - startMinutes) / SLOT_MINUTES;
-
     const topPx = startSlots * CELL_HEIGHT;
     const heightPx = Math.max(durationSlots * CELL_HEIGHT - 2, 24);
 
@@ -274,21 +280,51 @@ function renderCommittedEventsForDay(colEl, dateStr) {
     block.innerHTML = `
       <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${evt.title}</div>
       <div style="font-size:0.68rem;">${formatTime(startSlots)} - ${formatTime(startSlots + durationSlots)}</div>
-      <button class="del-btn" title="Googleカレンダーから削除" onclick="deleteCalendarEvent('${evt.id}', event)">×</button>
+      <button class="del-btn" title="カレンダーから削除" onclick="deleteCalendarEvent('${evt.id}', event)">×</button>
     `;
     colEl.appendChild(block);
   });
 }
 
-// Googleカレンダー上のイベント削除
+// 未送信キューの描画
+function renderPendingSchedulesForDay(colEl, dateStr) {
+  const list = pendingSchedules.filter(p => p.dateStr === dateStr);
+  list.forEach(p => {
+    const topPx = p.startSlot * CELL_HEIGHT;
+    const heightPx = (p.endSlot - p.startSlot + 1) * CELL_HEIGHT;
+
+    const startTimeStr = formatTime(p.startSlot);
+    const endTimeStr = formatTime(p.endSlot + 1);
+
+    const block = document.createElement('div');
+    block.className = 'pending-block';
+    block.style.top = `${topPx}px`;
+    block.style.height = `${heightPx}px`;
+    block.innerHTML = `
+      <div>
+        <span class="block-badge">未登録</span>
+        <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.title}</div>
+      </div>
+      <div style="font-size:0.68rem;">${startTimeStr} - ${endTimeStr}</div>
+      <button class="del-btn" title="取り消し" onclick="removePendingSchedule('${p.id}', event)">×</button>
+    `;
+    colEl.appendChild(block);
+  });
+}
+
+// 未登録ブロックの単体消去
+window.removePendingSchedule = function(id, e) {
+  if (e) e.stopPropagation();
+  pendingSchedules = pendingSchedules.filter(p => p.id !== id);
+  renderWeek();
+};
+
 window.deleteCalendarEvent = async function(id, e) {
-  e.stopPropagation();
+  if (e) e.stopPropagation();
   if (!confirm('この予定をGoogleカレンダーから削除しますか？')) return;
 
   if (!accessToken) {
-    // オフライン・モック削除
-    const idx = calendarEvents.findIndex(item => item.id === id);
-    if (idx !== -1) calendarEvents.splice(idx, 1);
+    calendarEvents = calendarEvents.filter(item => item.id !== id);
     renderWeek();
     showToast('予定を解除しました（モック）');
     return;
@@ -303,17 +339,14 @@ window.deleteCalendarEvent = async function(id, e) {
     if (res.ok) {
       showToast('Googleカレンダーから削除しました');
       loadCalendarEvents();
-    } else {
-      showToast('削除に失敗しました');
     }
   } catch (err) {
-    console.error(err);
     showToast('削除リクエストエラー');
   }
 };
 
 // ==========================================
-// ドラッグ・タッチ選択処理
+// ドラッグ & 見切れ時の自動スクロール (Auto-Scroll)
 // ==========================================
 function getSlotAndDayFromPoint(x, y) {
   const el = document.elementFromPoint(x, y);
@@ -334,25 +367,69 @@ function getSlotAndDayFromPoint(x, y) {
   return null;
 }
 
-function updateSelectionOverlay() {
-  const oldOverlay = document.querySelector('.selection-overlay');
-  if (oldOverlay) oldOverlay.remove();
-
-  if (!currentSelection) {
-    submitBtn.disabled = true;
-    selectionInfo.innerHTML = '未選択 (画面をなぞって時間帯を指定)';
+// 自動スクロール監視ループ
+function checkAutoScroll() {
+  if (!isDragging) {
+    stopAutoScroll();
     return;
   }
 
-  const { dayIndex, startSlot, endSlot, dateStr } = currentSelection;
-  const targetCol = gridBody.querySelector(`.day-column[data-day-index="${dayIndex}"]`);
+  const rect = calendarContainer.getBoundingClientRect();
+  const threshold = 60; // 端から60px以内でスクロール発動
+  const scrollSpeed = 16; // 1フレームあたりのスクロール量
+
+  // 下端付近判定
+  if (lastPointerClientY > rect.bottom - threshold && lastPointerClientY <= rect.bottom + 40) {
+    calendarContainer.scrollTop += scrollSpeed;
+    updateDragFromCurrentPointer();
+  }
+  // 上端付近判定
+  else if (lastPointerClientY < rect.top + threshold && lastPointerClientY >= rect.top - 40) {
+    calendarContainer.scrollTop -= scrollSpeed;
+    updateDragFromCurrentPointer();
+  }
+}
+
+function startAutoScroll() {
+  if (!autoScrollTimer) {
+    autoScrollTimer = setInterval(checkAutoScroll, 20); // 50fps
+  }
+}
+
+function stopAutoScroll() {
+  if (autoScrollTimer) {
+    clearInterval(autoScrollTimer);
+    autoScrollTimer = null;
+  }
+}
+
+function updateDragFromCurrentPointer() {
+  // 自動スクロール中に現在の指/マウス位置のセルを再評価
+  const currentX = window.lastPointerClientX || 0;
+  const currentY = lastPointerClientY;
+  const point = getSlotAndDayFromPoint(currentX, currentY);
+  if (point && dragStart && point.dayIndex === dragStart.dayIndex) {
+    dragCurrent = point;
+    updateActiveDragOverlay();
+  }
+}
+
+function updateActiveDragOverlay() {
+  const oldOverlay = document.querySelector('.selection-overlay');
+  if (oldOverlay) oldOverlay.remove();
+
+  if (!dragStart || !dragCurrent) return;
+
+  const minSlot = Math.min(dragStart.slotIndex, dragCurrent.slotIndex);
+  const maxSlot = Math.max(dragStart.slotIndex, dragCurrent.slotIndex);
+  const targetCol = gridBody.querySelector(`.day-column[data-day-index="${dragStart.dayIndex}"]`);
   if (!targetCol) return;
 
-  const topPx = startSlot * CELL_HEIGHT;
-  const heightPx = (endSlot - startSlot + 1) * CELL_HEIGHT;
+  const topPx = minSlot * CELL_HEIGHT;
+  const heightPx = (maxSlot - minSlot + 1) * CELL_HEIGHT;
 
-  const startTimeStr = formatTime(startSlot);
-  const endTimeStr = formatTime(endSlot + 1);
+  const startTimeStr = formatTime(minSlot);
+  const endTimeStr = formatTime(maxSlot + 1);
 
   const overlay = document.createElement('div');
   overlay.className = 'selection-overlay';
@@ -361,42 +438,28 @@ function updateSelectionOverlay() {
   overlay.style.left = '3px';
   overlay.style.right = '3px';
 
-  const calType = calendarSelect.options[calendarSelect.selectedIndex].text;
-
   overlay.innerHTML = `
-    <div class="sel-title">選択中: ${calType}</div>
+    <div class="sel-title">時間帯を指定中...</div>
     <div class="sel-time">${startTimeStr} 〜 ${endTimeStr}</div>
   `;
-
   targetCol.appendChild(overlay);
-
-  submitBtn.disabled = false;
-  selectionInfo.innerHTML = `<span>${dateStr}</span> <span>${startTimeStr} - ${endTimeStr}</span> を選択中`;
-}
-
-function clearSelection() {
-  currentSelection = null;
-  dragStart = null;
-  dragCurrent = null;
-  isDragging = false;
-  const oldOverlay = document.querySelector('.selection-overlay');
-  if (oldOverlay) oldOverlay.remove();
-  submitBtn.disabled = true;
-  selectionInfo.innerHTML = '未選択 (画面をなぞって時間帯を指定)';
 }
 
 function handlePointerDown(e) {
-  if (e.target.closest('.del-btn') || e.target.closest('.committed-block')) return;
+  if (e.target.closest('.del-btn') || e.target.closest('.committed-block') || e.target.closest('.pending-block')) return;
 
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
   const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-  const point = getSlotAndDayFromPoint(clientX, clientY);
+  window.lastPointerClientX = clientX;
+  lastPointerClientY = clientY;
 
+  const point = getSlotAndDayFromPoint(clientX, clientY);
   if (point) {
     isDragging = true;
     dragStart = point;
     dragCurrent = point;
-    calculateSelection();
+    updateActiveDragOverlay();
+    startAutoScroll();
   }
 }
 
@@ -405,35 +468,152 @@ function handlePointerMove(e) {
 
   const clientX = e.touches ? e.touches[0].clientX : e.clientX;
   const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-  const point = getSlotAndDayFromPoint(clientX, clientY);
+  window.lastPointerClientX = clientX;
+  lastPointerClientY = clientY;
 
+  const point = getSlotAndDayFromPoint(clientX, clientY);
   if (point && point.dayIndex === dragStart.dayIndex) {
     dragCurrent = point;
-    calculateSelection();
+    updateActiveDragOverlay();
   }
 }
 
 function handlePointerUp() {
-  if (isDragging) {
-    isDragging = false;
+  if (!isDragging) return;
+  isDragging = false;
+  stopAutoScroll();
+
+  const oldOverlay = document.querySelector('.selection-overlay');
+  if (oldOverlay) oldOverlay.remove();
+
+  if (dragStart && dragCurrent) {
+    const minSlot = Math.min(dragStart.slotIndex, dragCurrent.slotIndex);
+    const maxSlot = Math.max(dragStart.slotIndex, dragCurrent.slotIndex);
+
+    const defaultTitle = calendarSelect.options[calendarSelect.selectedIndex] 
+      ? calendarSelect.options[calendarSelect.selectedIndex].text.split(' ')[0] + ' 予定'
+      : '予定';
+
+    // 未送信キューに新規追加！
+    pendingSchedules.push({
+      id: 'pending-' + Date.now() + Math.random(),
+      dayIndex: dragStart.dayIndex,
+      dateStr: dragStart.dateStr,
+      startSlot: minSlot,
+      endSlot: maxSlot,
+      title: defaultTitle
+    });
+
+    renderWeek();
+  }
+
+  dragStart = null;
+  dragCurrent = null;
+}
+
+// フッターサマリー更新
+function updateFooterSummary() {
+  const count = pendingSchedules.length;
+  if (count === 0) {
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span>Googleカレンダーへ一括登録</span>';
+    selectionInfo.innerHTML = '未登録: <span>0</span> 件 (画面をなぞって予定を追加)';
+    clearBtn.style.display = 'none';
+  } else {
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = `<span>⚡ 選択した ${count} 件を一括登録</span>`;
+    selectionInfo.innerHTML = `登録待ち: <span>${count}</span> 件のスケジュールがあります`;
+    clearBtn.style.display = 'block';
   }
 }
 
-function calculateSelection() {
-  if (!dragStart || !dragCurrent) return;
+clearBtn.addEventListener('click', () => {
+  if (confirm('登録待ちのスケジュールをすべてクリアしますか？')) {
+    pendingSchedules = [];
+    renderWeek();
+  }
+});
 
-  const minSlot = Math.min(dragStart.slotIndex, dragCurrent.slotIndex);
-  const maxSlot = Math.max(dragStart.slotIndex, dragCurrent.slotIndex);
+// ==========================================
+// Googleカレンダーへまとめて一括登録 (バッチ実行)
+// ==========================================
+submitBtn.addEventListener('click', async () => {
+  if (pendingSchedules.length === 0) return;
 
-  currentSelection = {
-    dayIndex: dragStart.dayIndex,
-    dateStr: dragStart.dateStr,
-    startSlot: minSlot,
-    endSlot: maxSlot
-  };
+  const count = pendingSchedules.length;
+  const calId = calendarSelect.value || 'primary';
+  const calName = calendarSelect.options[calendarSelect.selectedIndex].text;
 
-  updateSelectionOverlay();
-}
+  if (!confirm(`選択された ${count} 件のスケジュールを「${calName}」へ一括登録しますか？`)) {
+    return;
+  }
+
+  if (!accessToken) {
+    // オフライン・モック登録
+    pendingSchedules.forEach(p => {
+      const startTimeStr = formatTime(p.startSlot);
+      const endTimeStr = formatTime(p.endSlot + 1);
+      const [sH, sM] = startTimeStr.split(':').map(Number);
+      const [eH, eM] = endTimeStr.split(':').map(Number);
+
+      calendarEvents.push({
+        id: 'local-' + Date.now() + Math.random(),
+        title: p.title,
+        dateStr: p.dateStr,
+        startHour: sH,
+        startMin: sM,
+        endHour: eH,
+        endMin: eM,
+        category: 'work'
+      });
+    });
+
+    pendingSchedules = [];
+    showToast(`（モック）${count} 件の予定を一括登録しました！`);
+    renderWeek();
+    return;
+  }
+
+  // Google Calendar API 本番並列送信
+  submitBtn.disabled = true;
+  submitBtn.innerHTML = `<span>⏳ ${count} 件を送信中...</span>`;
+
+  try {
+    const promises = pendingSchedules.map(p => {
+      const startTimeStr = formatTime(p.startSlot);
+      const endTimeStr = formatTime(p.endSlot + 1);
+      const startDateTime = `${p.dateStr}T${startTimeStr}:00+09:00`;
+      const endDateTime = `${p.dateStr}T${endTimeStr}:00+09:00`;
+
+      return fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          summary: p.title,
+          description: 'sync-shift から一括登録',
+          start: { dateTime: startDateTime, timeZone: 'Asia/Tokyo' },
+          end: { dateTime: endDateTime, timeZone: 'Asia/Tokyo' }
+        })
+      });
+    });
+
+    const results = await Promise.all(promises);
+    const successCount = results.filter(r => r.ok).length;
+
+    pendingSchedules = [];
+    showToast(`⚡ ${successCount} 件のスケジュールをGoogleカレンダーへ一括登録完了！`);
+    await loadCalendarEvents();
+  } catch (err) {
+    console.error('Batch insert error', err);
+    showToast('一括登録中にエラーが発生しました');
+  } finally {
+    submitBtn.disabled = false;
+    renderWeek();
+  }
+});
 
 function showToast(msg) {
   toast.textContent = msg;
@@ -442,81 +622,6 @@ function showToast(msg) {
     toast.classList.remove('show');
   }, 3500);
 }
-
-// ==========================================
-// Googleカレンダーへ一括登録 (events.insert)
-// ==========================================
-submitBtn.addEventListener('click', async () => {
-  if (!currentSelection) return;
-
-  const calId = calendarSelect.value || 'primary';
-  const calName = calendarSelect.options[calendarSelect.selectedIndex].text;
-  const startTimeStr = formatTime(currentSelection.startSlot);
-  const endTimeStr = formatTime(currentSelection.endSlot + 1);
-
-  // イベントタイトルをプロンプトで入力可能に（デフォルト値あり）
-  const eventTitle = prompt('カレンダーに登録する予定のタイトルを入力してください:', `${calName.split(' ')[0]} 予定`);
-  if (!eventTitle) return;
-
-  // RFC3339 形式の日時文字列作成 (日本時間 JST +09:00)
-  const startDateTime = `${currentSelection.dateStr}T${startTimeStr}:00+09:00`;
-  const endDateTime = `${currentSelection.dateStr}T${endTimeStr}:00+09:00`;
-
-  if (!accessToken) {
-    // Google未連携時のローカルシミュレーション
-    const [sH, sM] = startTimeStr.split(':').map(Number);
-    const [eH, eM] = endTimeStr.split(':').map(Number);
-    calendarEvents.push({
-      id: 'local-' + Date.now(),
-      title: eventTitle,
-      dateStr: currentSelection.dateStr,
-      startHour: sH,
-      startMin: sM,
-      endHour: eH,
-      endMin: eM,
-      category: 'work'
-    });
-    showToast(`（モック）${currentSelection.dateStr} [${startTimeStr}-${endTimeStr}] をローカル登録しました`);
-    renderWeek();
-    return;
-  }
-
-  // 本番 Google Calendar API: events.insert 実行
-  submitBtn.disabled = true;
-  submitBtn.textContent = '登録中...';
-
-  try {
-    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        summary: eventTitle,
-        description: 'sync-shift から一括登録された予定',
-        start: { dateTime: startDateTime, timeZone: 'Asia/Tokyo' },
-        end: { dateTime: endDateTime, timeZone: 'Asia/Tokyo' }
-      })
-    });
-
-    if (res.ok) {
-      showToast(`⚡ Googleカレンダー（${calName}）へ正常に登録完了！`);
-      await loadCalendarEvents();
-    } else {
-      const errData = await res.json();
-      showToast(`登録エラー: ${errData.error?.message || '不明なエラー'}`);
-    }
-  } catch (err) {
-    console.error('Insert Event Error:', err);
-    showToast('登録リクエストに失敗しました');
-  } finally {
-    submitBtn.disabled = false;
-    submitBtn.innerHTML = '<span>Googleカレンダーへ一括登録</span>';
-  }
-});
-
-clearBtn.addEventListener('click', clearSelection);
 
 prevWeekBtn.addEventListener('click', () => {
   currentWeekOffset--;
@@ -530,7 +635,7 @@ nextWeekBtn.addEventListener('click', () => {
   if (accessToken) loadCalendarEvents();
 });
 
-// イベントリスナー
+// イベントリスナー登録
 gridBody.addEventListener('touchstart', handlePointerDown, { passive: false });
 gridBody.addEventListener('touchmove', handlePointerMove, { passive: false });
 window.addEventListener('touchend', handlePointerUp);
@@ -539,7 +644,7 @@ gridBody.addEventListener('mousedown', handlePointerDown);
 window.addEventListener('mousemove', handlePointerMove);
 window.addEventListener('mouseup', handlePointerUp);
 
-// 初期化起動
+// 初期化
 initTimeLabels();
 renderWeek();
 initGoogleAuth();
