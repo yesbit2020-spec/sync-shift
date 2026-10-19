@@ -76,6 +76,27 @@
     </div>
   </div>
 
+  <!-- 件名入力・編集モーダル -->
+  <div id="modalOverlay" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3 id="modalTitle">予定の件名を入力</h3>
+        <button class="modal-close-btn" id="modalCloseBtn">×</button>
+      </div>
+      <div class="modal-body">
+        <div class="modal-time-badge" id="modalTimeRange">10/20 (火) 14:00 〜 18:00</div>
+        <div class="form-group">
+          <label for="eventTitleInput">件名 / 予定名:</label>
+          <input type="text" id="eventTitleInput" placeholder="例: 早番レジ、品出し、MTG" autocomplete="off">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="modalCancelBtn">キャンセル</button>
+        <button class="btn-primary" id="modalSaveBtn">決定 (Enter)</button>
+      </div>
+    </div>
+  </div>
+
   <div id="toast"></div>
 
   <script src="app.js"></script>

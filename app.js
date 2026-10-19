@@ -33,6 +33,9 @@ let calendarEvents = [];
 let autoScrollTimer = null;
 let lastPointerClientY = 0;
 
+// モーダル編集ターゲット
+let editingTarget = null; // { mode: 'create' | 'edit', data: ... }
+
 // DOM要素
 const calendarContainer = document.getElementById('calendarContainer');
 const gridHeader = document.getElementById('gridHeader');
@@ -48,6 +51,15 @@ const selectionInfo = document.getElementById('selectionInfo');
 const toast = document.getElementById('toast');
 const authBtn = document.getElementById('authBtn');
 const authBtnText = document.getElementById('authBtnText');
+
+// モーダルDOM要素
+const modalOverlay = document.getElementById('modalOverlay');
+const modalTitle = document.getElementById('modalTitle');
+const modalTimeRange = document.getElementById('modalTimeRange');
+const eventTitleInput = document.getElementById('eventTitleInput');
+const modalCloseBtn = document.getElementById('modalCloseBtn');
+const modalCancelBtn = document.getElementById('modalCancelBtn');
+const modalSaveBtn = document.getElementById('modalSaveBtn');
 
 // ==========================================
 // Google Identity Services (GIS) 認証処理
@@ -286,7 +298,7 @@ function renderCommittedEventsForDay(colEl, dateStr) {
   });
 }
 
-// 未送信キューの描画
+// 未送信キューの描画（クリックでタイトル再編集可能）
 function renderPendingSchedulesForDay(colEl, dateStr) {
   const list = pendingSchedules.filter(p => p.dateStr === dateStr);
   list.forEach(p => {
@@ -302,12 +314,19 @@ function renderPendingSchedulesForDay(colEl, dateStr) {
     block.style.height = `${heightPx}px`;
     block.innerHTML = `
       <div>
-        <span class="block-badge">未登録</span>
+        <span class="block-badge">未登録 (タップで編集)</span>
         <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.title}</div>
       </div>
       <div style="font-size:0.68rem;">${startTimeStr} - ${endTimeStr}</div>
       <button class="del-btn" title="取り消し" onclick="removePendingSchedule('${p.id}', event)">×</button>
     `;
+    
+    // タップ・クリックで再編集モーダルを開く
+    block.addEventListener('click', (e) => {
+      if (e.target.closest('.del-btn')) return;
+      openEditModal('edit', p);
+    });
+
     colEl.appendChild(block);
   });
 }
@@ -494,22 +513,90 @@ function handlePointerUp() {
       ? calendarSelect.options[calendarSelect.selectedIndex].text.split(' ')[0] + ' 予定'
       : '予定';
 
-    // 未送信キューに新規追加！
-    pendingSchedules.push({
+    const newPendingData = {
       id: 'pending-' + Date.now() + Math.random(),
       dayIndex: dragStart.dayIndex,
       dateStr: dragStart.dateStr,
       startSlot: minSlot,
       endSlot: maxSlot,
       title: defaultTitle
-    });
+    };
 
-    renderWeek();
+    // 件名入力モーダルを開く
+    openEditModal('create', newPendingData);
   }
 
   dragStart = null;
   dragCurrent = null;
 }
+
+// ==========================================
+// モーダル操作ロジック
+// ==========================================
+function openEditModal(mode, data) {
+  editingTarget = { mode, data };
+  const startTimeStr = formatTime(data.startSlot);
+  const endTimeStr = formatTime(data.endSlot + 1);
+
+  modalTitle.textContent = mode === 'create' ? '予定の件名を入力' : '件名を編集';
+  modalTimeRange.textContent = `📅 ${data.dateStr}  ⏰ ${startTimeStr} 〜 ${endTimeStr}`;
+  eventTitleInput.value = data.title || '';
+
+  modalOverlay.classList.add('open');
+
+  // インプットにフォーカス & テキスト全選択（ワンキーで上書き可能に）
+  setTimeout(() => {
+    eventTitleInput.focus();
+    eventTitleInput.select();
+  }, 100);
+}
+
+function closeEditModal() {
+  modalOverlay.classList.remove('open');
+  editingTarget = null;
+}
+
+function saveEditModal() {
+  if (!editingTarget) return;
+
+  const titleVal = eventTitleInput.value.trim() || '予定';
+  const { mode, data } = editingTarget;
+
+  if (mode === 'create') {
+    data.title = titleVal;
+    pendingSchedules.push(data);
+  } else if (mode === 'edit') {
+    const target = pendingSchedules.find(p => p.id === data.id);
+    if (target) {
+      target.title = titleVal;
+    }
+  }
+
+  closeEditModal();
+  renderWeek();
+}
+
+modalSaveBtn.addEventListener('click', saveEditModal);
+modalCancelBtn.addEventListener('click', closeEditModal);
+modalCloseBtn.addEventListener('click', closeEditModal);
+
+// Enterキーで即決定、Escキーでキャンセル
+eventTitleInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    saveEditModal();
+  } else if (e.key === 'Escape') {
+    e.preventDefault();
+    closeEditModal();
+  }
+});
+
+// モーダル外側の背景クリックで閉じる
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) {
+    closeEditModal();
+  }
+});
 
 // フッターサマリー更新
 function updateFooterSummary() {
