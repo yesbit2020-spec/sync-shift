@@ -43,80 +43,138 @@ body {
   overflow: hidden; /* 画面全体のバウンスを抑止 */
 }
 
-/* ヘッダー（固定） */
+/* ヘッダー（固定・スリム） */
 header {
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border-color);
-  padding: 10px 16px;
+  padding: 8px 12px;
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
+  flex-direction: column;
+  gap: 8px;
   flex-shrink: 0;
   z-index: 50;
   box-shadow: 0 4px 12px rgba(0,0,0,0.3);
 }
 
+.header-top-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
 .brand-group {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .logo-badge {
   background: linear-gradient(135deg, #0284c7, #38bdf8);
   color: #fff;
   font-weight: 800;
-  font-size: 0.85rem;
-  padding: 4px 8px;
-  border-radius: 6px;
+  font-size: 0.8rem;
+  padding: 3px 6px;
+  border-radius: 5px;
   letter-spacing: 0.05em;
 }
 
 .app-title {
-  font-size: 1.15rem;
+  font-size: 1rem;
   font-weight: 700;
   color: #fff;
   letter-spacing: 0.02em;
 }
 
-/* コントロールエリア */
+/* コントロールエリア（横並びで1行に収める） */
 .controls {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
 }
 
 .calendar-select-wrap {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: var(--bg-card);
-  padding: 6px 12px;
-  border-radius: 8px;
+  padding: 4px 8px;
+  border-radius: 6px;
   border: 1px solid var(--border-color);
+  flex: 1;
+  min-width: 0;
 }
 
 .calendar-select-wrap label {
-  font-size: 0.8rem;
+  font-size: 0.72rem;
   color: var(--text-muted);
+  white-space: nowrap;
+}
+
+select {
+  background: transparent;
+  color: var(--text-main);
+  border: none;
+  font-size: 0.82rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.nav-group {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: var(--bg-card);
+  border-radius: 6px;
+  padding: 2px 4px;
+  border: 1px solid var(--border-color);
+  flex-shrink: 0;
+}
+
+.btn-icon {
+  background: transparent;
+  border: none;
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 4px 6px;
+  border-radius: 4px;
+}
+
+.btn-icon:hover {
+  background: var(--border-color);
+}
+
+.current-week-label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  min-width: 105px;
+  text-align: center;
+  color: var(--accent);
+  white-space: nowrap;
 }
 
 .btn-auth {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   color: var(--text-main);
-  padding: 6px 12px;
-  border-radius: 8px;
-  font-size: 0.84rem;
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
+  flex-shrink: 0;
 }
 
 .btn-auth:hover {
@@ -128,54 +186,6 @@ header {
   border-color: #10b981;
   background: rgba(16, 185, 129, 0.15);
   color: #34d399;
-}
-
-select {
-  background: transparent;
-  color: var(--text-main);
-  border: none;
-  font-size: 0.88rem;
-  font-weight: 600;
-  outline: none;
-  cursor: pointer;
-}
-
-select option {
-  background: var(--bg-surface);
-  color: var(--text-main);
-}
-
-.nav-group {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--bg-card);
-  border-radius: 8px;
-  padding: 4px 8px;
-  border: 1px solid var(--border-color);
-}
-
-.btn-icon {
-  background: transparent;
-  border: none;
-  color: var(--text-main);
-  cursor: pointer;
-  font-size: 1rem;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: background 0.15s;
-}
-
-.btn-icon:hover {
-  background: var(--border-color);
-}
-
-.current-week-label {
-  font-size: 0.88rem;
-  font-weight: 600;
-  min-width: 130px;
-  text-align: center;
-  color: var(--accent);
 }
 
 .btn-sync {
