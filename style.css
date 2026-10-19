@@ -335,15 +335,15 @@ select option {
   background: rgba(255, 255, 255, 0.02);
 }
 
-/* 選択中のブロック */
+/* ドラッグ選択中のオーバーレイ（薄い赤） */
 .selection-overlay {
   position: absolute;
-  background: var(--selection);
-  border: 2px solid var(--selection-border);
+  background: rgba(239, 68, 68, 0.25);
+  border: 2px dashed #f87171;
   border-radius: 6px;
   pointer-events: none;
-  z-index: 10;
-  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.25);
+  z-index: 20;
+  box-shadow: 0 4px 14px rgba(239, 68, 68, 0.25);
   display: flex;
   flex-direction: column;
   padding: 4px 8px;
@@ -357,6 +357,7 @@ select option {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: #fca5a5;
 }
 
 .selection-overlay .sel-time {
@@ -364,7 +365,7 @@ select option {
   opacity: 0.9;
 }
 
-/* 登録待ち（未送信）ブロック */
+/* 登録待ち（確定前の未送信ブロック：薄い赤＆赤い点線） */
 .pending-block {
   position: absolute;
   left: 3px;
@@ -374,26 +375,32 @@ select option {
   font-size: 0.75rem;
   z-index: 15;
   color: #fff;
-  background: rgba(56, 189, 248, 0.4);
-  border: 2px dashed #38bdf8;
-  box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+  background: rgba(239, 68, 68, 0.28);
+  border: 2px dashed #ef4444;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.25);
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  animation: pendingPulse 2s infinite ease-in-out;
+  animation: pendingPulseRed 2s infinite ease-in-out;
   cursor: pointer;
 }
 
-@keyframes pendingPulse {
-  0%, 100% { border-color: #38bdf8; }
-  50% { border-color: #93c5fd; }
+@keyframes pendingPulseRed {
+  0%, 100% { 
+    border-color: #ef4444; 
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.3);
+  }
+  50% { 
+    border-color: #fca5a5; 
+    box-shadow: 0 0 14px rgba(239, 68, 68, 0.5);
+  }
 }
 
 .pending-block .block-badge {
   font-size: 0.65rem;
-  background: #0284c7;
+  background: #dc2626;
   color: #fff;
-  padding: 1px 4px;
+  padding: 1px 5px;
   border-radius: 4px;
   display: inline-block;
   margin-bottom: 2px;
@@ -404,7 +411,7 @@ select option {
   position: absolute;
   top: 2px;
   right: 4px;
-  background: rgba(0,0,0,0.4);
+  background: rgba(0,0,0,0.45);
   border: none;
   color: #fff;
   font-size: 0.95rem;
@@ -419,10 +426,10 @@ select option {
 }
 
 .pending-block .del-btn:hover {
-  background: #ef4444;
+  background: #b91c1c;
 }
 
-/* 確定登録済みブロック */
+/* 確定登録済みブロック（鮮やかな青） */
 .committed-block {
   position: absolute;
   left: 3px;
@@ -432,40 +439,36 @@ select option {
   font-size: 0.75rem;
   z-index: 5;
   color: #fff;
+  background: linear-gradient(135deg, rgba(2, 132, 199, 0.9), rgba(14, 165, 233, 0.85));
+  border: 1px solid #38bdf8;
+  border-left: 4px solid #38bdf8;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-  border-left: 4px solid #fff;
-}
-
-.committed-block.work {
-  background: rgba(14, 165, 233, 0.85);
-  border-color: #38bdf8;
-}
-.committed-block.private {
-  background: rgba(16, 185, 129, 0.85);
-  border-color: #34d399;
-}
-.committed-block.business {
-  background: rgba(245, 158, 11, 0.85);
-  border-color: #fbbf24;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
 }
 
 .committed-block .del-btn {
   position: absolute;
   top: 2px;
   right: 4px;
-  background: none;
+  background: rgba(0, 0, 0, 0.3);
   border: none;
-  color: rgba(255,255,255,0.8);
+  color: rgba(255,255,255,0.85);
   font-size: 0.9rem;
   cursor: pointer;
+  border-radius: 50%;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   line-height: 1;
 }
 
 .committed-block .del-btn:hover {
-  color: #ff4d4f;
+  background: #ef4444;
+  color: #fff;
 }
 
 /* フッターアクションバー（完全固定） */
