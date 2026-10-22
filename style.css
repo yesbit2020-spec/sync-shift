@@ -260,9 +260,10 @@ select option {
   display: flex;
   flex-direction: column;
   overflow-y: auto;
-  overflow-x: hidden; /* 横スクロールを完全排除して誤作動防止 */
+  overflow-x: hidden;
   position: relative;
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y; /* 縦スクロールをブラウザ標準でスムーズに許可 */
 }
 
 /* カレンダー曜日ヘッダー */
@@ -274,6 +275,7 @@ select option {
   position: sticky;
   top: 0;
   z-index: 20;
+  touch-action: pan-x pan-y; /* ヘッダー上での左右スワイプを許可 */
 }
 
 .header-cell {
@@ -323,7 +325,7 @@ select option {
   grid-template-columns: var(--time-col-w) repeat(7, 1fr);
   position: relative;
   background: var(--bg-primary);
-  touch-action: none;
+  touch-action: pan-y; /* 通常は上下スクロール優先 */
 }
 
 .time-labels {
@@ -436,20 +438,21 @@ select option {
 
 .pending-block .del-btn {
   position: absolute;
-  top: 1px;
-  right: 1px;
-  background: rgba(0,0,0,0.5);
+  top: 0px;
+  right: 0px;
+  background: rgba(0,0,0,0.6);
   border: none;
   color: #fff;
-  font-size: 0.85rem;
-  border-radius: 50%;
-  width: 15px;
-  height: 15px;
+  font-size: 0.95rem;
+  border-radius: 0 4px 0 6px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   line-height: 1;
+  z-index: 20;
 }
 
 .pending-block .del-btn:hover {
@@ -474,24 +477,26 @@ select option {
   justify-content: space-between;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   overflow: hidden;
+  cursor: pointer;
 }
 
 .committed-block .del-btn {
   position: absolute;
-  top: 1px;
-  right: 1px;
-  background: rgba(0, 0, 0, 0.35);
+  top: 0px;
+  right: 0px;
+  background: rgba(0, 0, 0, 0.5);
   border: none;
-  color: rgba(255,255,255,0.85);
-  font-size: 0.8rem;
+  color: rgba(255,255,255,0.95);
+  font-size: 0.9rem;
   cursor: pointer;
-  border-radius: 50%;
-  width: 15px;
-  height: 15px;
+  border-radius: 0 4px 0 6px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
   line-height: 1;
+  z-index: 20;
 }
 
 .committed-block .del-btn:hover {
@@ -679,6 +684,25 @@ select option {
   border-radius: 8px;
   font-size: 0.88rem;
   cursor: pointer;
+}
+.btn-secondary:hover {
+  color: var(--text-main);
+  border-color: var(--text-muted);
+}
+
+.btn-danger {
+  background: #dc2626;
+  border: none;
+  color: #fff;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-right: auto;
+}
+.btn-danger:hover {
+  background: #b91c1c;
 }
 .btn-secondary:hover {
   color: var(--text-main);
