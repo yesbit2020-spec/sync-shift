@@ -34,7 +34,7 @@
       </button>
     </div>
 
-    <!-- 下段（操作バー）: 週送りナビ & カレンダー切り替えプルダウンを横並び1行で収容 -->
+    <!-- 下段（操作バー）: 週送りナビ & 表示カレンダー選択 -->
     <div class="controls">
       <div class="nav-group">
         <button class="btn-icon" id="prevWeekBtn" title="前の週">◀</button>
@@ -42,11 +42,21 @@
         <button class="btn-icon" id="nextWeekBtn" title="次の週">▶</button>
       </div>
 
+      <!-- 複数カレンダー切り替えボタン & ポップアップ -->
       <div class="calendar-select-wrap">
-        <label for="calendarSelect">連携先:</label>
-        <select id="calendarSelect">
-          <option value="primary">メインカレンダー</option>
-        </select>
+        <button type="button" class="btn-cal-filter" id="calFilterBtn">
+          <span>表示カレンダー</span>
+          <span class="cal-count-badge" id="calCountBadge">0</span>
+          <span style="font-size:0.65rem;">▼</span>
+        </button>
+        
+        <!-- カレンダー複数選択ドロップダウンメニュー -->
+        <div class="cal-dropdown-panel" id="calDropdownPanel">
+          <div class="cal-dropdown-header">表示するカレンダーを選択</div>
+          <div class="cal-checkbox-list" id="calCheckboxList">
+            <!-- JSで動的生成 -->
+          </div>
+        </div>
       </div>
     </div>
   </header>
@@ -93,6 +103,14 @@
       </div>
       <div class="modal-body">
         <div class="modal-time-badge" id="modalTimeRange">10/20 (火) 14:00 〜 18:00</div>
+        
+        <div class="form-group">
+          <label for="eventCalSelect">登録先カレンダー:</label>
+          <select id="eventCalSelect" class="modal-select">
+            <!-- JSで動的生成 -->
+          </select>
+        </div>
+
         <div class="form-group">
           <label for="eventTitleInput">件名 / 予定名:</label>
           <input type="text" id="eventTitleInput" placeholder="例: 早番レジ、品出し、MTG" autocomplete="off">

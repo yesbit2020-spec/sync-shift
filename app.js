@@ -40,6 +40,10 @@ let touchHoldTimer = null;
 let pendingSchedules = [];
 let calendarEvents = [];
 
+// カレンダーリストストア
+let allCalendars = []; // [{ id, summary, primary, backgroundColor, colorId }, ...]
+let selectedCalendarIds = []; // 表示対象として選択されたカレンダーIDの配列
+
 let autoScrollTimer = null;
 let lastPointerClientY = 0;
 let editingTarget = null; // { mode: 'create' | 'edit' | 'committed', data: ... }
@@ -52,7 +56,10 @@ const timeLabels = document.getElementById('timeLabels');
 const weekRangeLabel = document.getElementById('weekRangeLabel');
 const prevWeekBtn = document.getElementById('prevWeekBtn');
 const nextWeekBtn = document.getElementById('nextWeekBtn');
-const calendarSelect = document.getElementById('calendarSelect');
+const calFilterBtn = document.getElementById('calFilterBtn');
+const calCountBadge = document.getElementById('calCountBadge');
+const calDropdownPanel = document.getElementById('calDropdownPanel');
+const calCheckboxList = document.getElementById('calCheckboxList');
 const submitBtn = document.getElementById('submitBtn');
 const clearBtn = document.getElementById('clearBtn');
 const selectionInfo = document.getElementById('selectionInfo');
@@ -64,6 +71,7 @@ const authBtnText = document.getElementById('authBtnText');
 const modalOverlay = document.getElementById('modalOverlay');
 const modalTitle = document.getElementById('modalTitle');
 const modalTimeRange = document.getElementById('modalTimeRange');
+const eventCalSelect = document.getElementById('eventCalSelect');
 const eventTitleInput = document.getElementById('eventTitleInput');
 const modalCloseBtn = document.getElementById('modalCloseBtn');
 const modalCancelBtn = document.getElementById('modalCancelBtn');
@@ -171,6 +179,7 @@ authBtn.addEventListener('click', () => {
   tokenClient.requestAccessToken(config);
 });
 
+// カレンダー一覧の読み込み（複数対応）
 async function loadCalendarList() {
   if (!accessToken) return;
   try {
@@ -179,21 +188,101 @@ async function loadCalendarList() {
     });
     const data = await res.json();
     if (data.items && data.items.length > 0) {
-      calendarSelect.innerHTML = '';
-      data.items.forEach(cal => {
-        const opt = document.createElement('option');
-        opt.value = cal.id;
-        opt.textContent = cal.summary + (cal.primary ? ' (メイン)' : '');
-        calendarSelect.appendChild(opt);
-      });
+      allCalendars = data.items.map((cal, idx) => ({
+        id: cal.id,
+        summary: cal.summary + (cal.primary ? ' (メイン)' : ''),
+        primary: cal.primary || false,
+        backgroundColor: cal.backgroundColor || getFallbackColor(idx)
+      }));
+
+      // localStorageから以前の選択状態を復元（なければprimaryまたは先頭2件をデフォルト選択）
+      const savedSelected = JSON.parse(localStorage.getItem('syncshift_selected_cals') || '[]');
+      if (savedSelected.length > 0) {
+        selectedCalendarIds = savedSelected.filter(id => allCalendars.some(c => c.id === id));
+      }
+      if (selectedCalendarIds.length === 0) {
+        const primaryCal = allCalendars.find(c => c.primary);
+        selectedCalendarIds = primaryCal ? [primaryCal.id] : [allCalendars[0].id];
+      }
+
+      renderCalDropdown();
+      updateCalFilterUI();
     }
   } catch (err) {
     console.error('Failed to load calendars', err);
   }
 }
 
+function getFallbackColor(idx) {
+  const colors = ['#0284c7', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899', '#06b6d4'];
+  return colors[idx % colors.length];
+}
+
+// カレンダー選択ドロップダウンの描画
+function renderCalDropdown() {
+  calCheckboxList.innerHTML = '';
+  allCalendars.forEach(cal => {
+    const item = document.createElement('label');
+    item.className = 'cal-checkbox-item';
+    
+    const isChecked = selectedCalendarIds.includes(cal.id);
+    
+    item.innerHTML = `
+      <input type="checkbox" value="${cal.id}" ${isChecked ? 'checked' : ''} style="cursor:pointer;">
+      <span class="cal-color-dot" style="background-color: ${cal.backgroundColor};"></span>
+      <span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${cal.summary}</span>
+    `;
+
+    const checkbox = item.querySelector('input');
+    checkbox.addEventListener('change', (e) => {
+      e.stopPropagation();
+      const calId = e.target.value;
+      if (e.target.checked) {
+        if (!selectedCalendarIds.includes(calId)) selectedCalendarIds.push(calId);
+      } else {
+        selectedCalendarIds = selectedCalendarIds.filter(id => id !== calId);
+      }
+      localStorage.setItem('syncshift_selected_cals', JSON.stringify(selectedCalendarIds));
+      updateCalFilterUI();
+      loadCalendarEvents();
+    });
+
+    calCheckboxList.appendChild(item);
+  });
+}
+
+function updateCalFilterUI() {
+  const count = selectedCalendarIds.length;
+  calCountBadge.textContent = count;
+  if (count === 1) {
+    const cal = allCalendars.find(c => c.id === selectedCalendarIds[0]);
+    calFilterBtn.querySelector('span:first-child').textContent = cal ? cal.summary : 'カレンダー';
+  } else if (count > 1) {
+    calFilterBtn.querySelector('span:first-child').textContent = `${count}件のカレンダー`;
+  } else {
+    calFilterBtn.querySelector('span:first-child').textContent = '未選択';
+  }
+}
+
+// ドロップダウン開閉
+calFilterBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  calDropdownPanel.classList.toggle('open');
+});
+
+document.addEventListener('click', (e) => {
+  if (!calDropdownPanel.contains(e.target) && e.target !== calFilterBtn) {
+    calDropdownPanel.classList.remove('open');
+  }
+});
+
+// 複数カレンダーの予定を並列一括取得
 async function loadCalendarEvents() {
-  if (!accessToken) return;
+  if (!accessToken || selectedCalendarIds.length === 0) {
+    calendarEvents = [];
+    renderWeek();
+    return;
+  }
 
   const weekDates = getWeekDates(currentWeekOffset);
   const timeMin = new Date(weekDates[0]);
@@ -201,43 +290,49 @@ async function loadCalendarEvents() {
   const timeMax = new Date(weekDates[6]);
   timeMax.setHours(23, 59, 59, 999);
 
-  const calId = encodeURIComponent(calendarSelect.value || 'primary');
-
   try {
-    const url = `https://www.googleapis.com/calendar/v3/calendars/${calId}/events?timeMin=${timeMin.toISOString()}&timeMax=${timeMax.toISOString()}&singleEvents=true&orderBy=startTime`;
-    const res = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` }
+    const fetchPromises = selectedCalendarIds.map(async (calId) => {
+      const calObj = allCalendars.find(c => c.id === calId);
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events?timeMin=${timeMin.toISOString()}&timeMax=${timeMax.toISOString()}&singleEvents=true&orderBy=startTime`;
+      const res = await fetch(url, { headers: { Authorization: `Bearer ${accessToken}` } });
+      if (!res.ok) return [];
+      const data = await res.json();
+      return (data.items || []).map(item => ({
+        ...item,
+        calId: calId,
+        calName: calObj ? calObj.summary : '',
+        calColor: calObj ? calObj.backgroundColor : '#0284c7'
+      }));
     });
-    const data = await res.json();
-    
-    calendarEvents = [];
-    if (data.items) {
-      data.items.forEach(item => {
-        if (!item.start.dateTime) return;
-        const start = new Date(item.start.dateTime);
-        const end = new Date(item.end.dateTime);
 
-        calendarEvents.push({
-          id: item.id,
-          title: item.summary || '(予定)',
-          dateStr: formatDate(start),
-          startHour: start.getHours(),
-          startMin: start.getMinutes(),
-          endHour: end.getHours(),
-          endMin: end.getMinutes(),
-          category: 'work'
-        });
+    const results = await Promise.all(fetchPromises);
+    const allItems = results.flat();
+
+    calendarEvents = [];
+    allItems.forEach(item => {
+      if (!item.start.dateTime) return;
+      const start = new Date(item.start.dateTime);
+      const end = new Date(item.end.dateTime);
+
+      calendarEvents.push({
+        id: item.id,
+        calId: item.calId,
+        calName: item.calName,
+        calColor: item.calColor,
+        title: item.summary || '(予定)',
+        dateStr: formatDate(start),
+        startHour: start.getHours(),
+        startMin: start.getMinutes(),
+        endHour: end.getHours(),
+        endMin: end.getMinutes()
       });
-    }
+    });
+
     renderWeek();
   } catch (err) {
     console.error('Failed to fetch events', err);
   }
 }
-
-calendarSelect.addEventListener('change', () => {
-  if (accessToken) loadCalendarEvents();
-});
 
 // ==========================================
 // 日付 & カレンダー描画
@@ -356,13 +451,23 @@ function renderCommittedEventsForDay(colEl, dateStr) {
     const heightPx = Math.max(durationSlots * cellH - 2, 22);
 
     const block = document.createElement('div');
-    block.className = `committed-block ${evt.category || 'work'}`;
+    block.className = 'committed-block';
     block.style.top = `${topPx}px`;
     block.style.height = `${heightPx}px`;
+    
+    // カレンダー固有の色がある場合は適用
+    if (evt.calColor) {
+      block.style.borderLeftColor = evt.calColor;
+      block.style.background = `linear-gradient(135deg, ${evt.calColor}cc, ${evt.calColor}99)`;
+    }
+
     block.innerHTML = `
-      <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:20px;">${evt.title}</div>
+      <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:20px;">
+        <span style="font-size:0.6rem; opacity:0.85; display:block;">${evt.calName}</span>
+        ${evt.title}
+      </div>
       <div style="font-size:0.65rem;">${formatTime(startSlots)} - ${formatTime(startSlots + durationSlots)}</div>
-      <button class="del-btn" title="削除" onclick="deleteCalendarEvent('${evt.id}', event)">×</button>
+      <button class="del-btn" title="削除" onclick="deleteCalendarEvent('${evt.id}', '${evt.calId}', event)">×</button>
     `;
     
     // タップで詳細＆削除モーダルを開く
@@ -370,6 +475,8 @@ function renderCommittedEventsForDay(colEl, dateStr) {
       if (e.target.closest('.del-btn')) return;
       openEditModal('committed', {
         id: evt.id,
+        calId: evt.calId,
+        calName: evt.calName,
         title: evt.title,
         dateStr: evt.dateStr,
         startSlot: startSlots,
@@ -391,13 +498,16 @@ function renderPendingSchedulesForDay(colEl, dateStr) {
     const startTimeStr = formatTime(p.startSlot);
     const endTimeStr = formatTime(p.endSlot + 1);
 
+    const calObj = allCalendars.find(c => c.id === p.targetCalId);
+    const calLabel = calObj ? calObj.summary : 'カレンダー';
+
     const block = document.createElement('div');
     block.className = 'pending-block';
     block.style.top = `${topPx}px`;
     block.style.height = `${heightPx}px`;
     block.innerHTML = `
       <div style="padding-right:20px;">
-        <span class="block-badge">未登録</span>
+        <span class="block-badge" style="background:#0284c7;">${calLabel}</span>
         <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.title}</div>
       </div>
       <div style="font-size:0.65rem;">${startTimeStr} - ${endTimeStr}</div>
@@ -423,7 +533,7 @@ window.removePendingSchedule = function(id, e) {
   renderWeek();
 };
 
-window.deleteCalendarEvent = async function(id, e) {
+window.deleteCalendarEvent = async function(id, calId, e) {
   if (e) {
     e.stopPropagation();
     e.preventDefault();
@@ -437,9 +547,9 @@ window.deleteCalendarEvent = async function(id, e) {
     return;
   }
 
-  const calId = encodeURIComponent(calendarSelect.value || 'primary');
+  const targetCalId = encodeURIComponent(calId || 'primary');
   try {
-    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${calId}/events/${id}`, {
+    const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/${targetCalId}/events/${id}`, {
       method: 'DELETE',
       headers: { Authorization: `Bearer ${accessToken}` }
     });
@@ -644,9 +754,10 @@ function finishDragSelection() {
     const minSlot = Math.min(dragStart.slotIndex, dragCurrent.slotIndex);
     const maxSlot = Math.max(dragStart.slotIndex, dragCurrent.slotIndex);
 
-    const defaultTitle = calendarSelect.options[calendarSelect.selectedIndex] 
-      ? calendarSelect.options[calendarSelect.selectedIndex].text.split(' ')[0] + ' 予定'
-      : '予定';
+    // デフォルト登録先は現在選択中の1つ目（またはプライマリ）
+    const defaultCalId = selectedCalendarIds[0] || (allCalendars[0] ? allCalendars[0].id : 'primary');
+    const calObj = allCalendars.find(c => c.id === defaultCalId);
+    const defaultTitle = calObj ? calObj.summary.split(' ')[0] + ' 予定' : '予定';
 
     const newPendingData = {
       id: 'pending-' + Date.now() + Math.random(),
@@ -654,7 +765,8 @@ function finishDragSelection() {
       dateStr: dragStart.dateStr,
       startSlot: minSlot,
       endSlot: maxSlot,
-      title: defaultTitle
+      title: defaultTitle,
+      targetCalId: defaultCalId
     };
 
     resetDragState();
@@ -696,30 +808,47 @@ function stopAutoScroll() {
 }
 
 // ==========================================
-// モーダル操作ロジック（編集・削除）
+// モーダル操作ロジック（登録先カレンダー選択対応）
 // ==========================================
 function openEditModal(mode, data) {
   editingTarget = { mode, data };
   const startTimeStr = formatTime(data.startSlot);
   const endTimeStr = formatTime(data.endSlot + 1);
 
+  // 登録先カレンダープルダウンの選択肢を生成
+  eventCalSelect.innerHTML = '';
+  allCalendars.forEach(cal => {
+    const opt = document.createElement('option');
+    opt.value = cal.id;
+    opt.textContent = cal.summary;
+    if (data.targetCalId && data.targetCalId === cal.id) {
+      opt.selected = true;
+    } else if (data.calId && data.calId === cal.id) {
+      opt.selected = true;
+    }
+    eventCalSelect.appendChild(opt);
+  });
+
   if (mode === 'create') {
-    modalTitle.textContent = '予定の件名を入力';
+    modalTitle.textContent = '予定の件名とカレンダーを選択';
     modalDeleteBtn.style.display = 'none';
     modalSaveBtn.textContent = '決定 (Enter)';
     eventTitleInput.disabled = false;
+    eventCalSelect.disabled = false;
   } else if (mode === 'edit') {
     modalTitle.textContent = '未登録予定の編集';
     modalDeleteBtn.style.display = 'block';
     modalDeleteBtn.textContent = 'この予定を削除';
     modalSaveBtn.textContent = '変更を保存';
     eventTitleInput.disabled = false;
+    eventCalSelect.disabled = false;
   } else if (mode === 'committed') {
     modalTitle.textContent = 'Googleカレンダーの予定';
     modalDeleteBtn.style.display = 'block';
     modalDeleteBtn.textContent = 'Googleカレンダーから削除';
     modalSaveBtn.textContent = '閉じる';
     eventTitleInput.disabled = true;
+    eventCalSelect.disabled = true;
   }
 
   modalTimeRange.textContent = `📅 ${data.dateStr}  ⏰ ${startTimeStr} 〜 ${endTimeStr}`;
@@ -751,12 +880,18 @@ function saveEditModal() {
   }
 
   const titleVal = eventTitleInput.value.trim() || '予定';
+  const selectedCalId = eventCalSelect.value;
+
   if (mode === 'create') {
     data.title = titleVal;
+    data.targetCalId = selectedCalId;
     pendingSchedules.push(data);
   } else if (mode === 'edit') {
     const target = pendingSchedules.find(p => p.id === data.id);
-    if (target) target.title = titleVal;
+    if (target) {
+      target.title = titleVal;
+      target.targetCalId = selectedCalId;
+    }
   }
 
   closeEditModal();
@@ -773,7 +908,7 @@ modalDeleteBtn.addEventListener('click', () => {
     closeEditModal();
   } else if (mode === 'committed') {
     closeEditModal();
-    deleteCalendarEvent(data.id);
+    deleteCalendarEvent(data.id, data.calId);
   }
 });
 
@@ -820,16 +955,13 @@ clearBtn.addEventListener('click', () => {
 });
 
 // ==========================================
-// Googleカレンダー一括登録 (バッチ実行)
+// Googleカレンダー一括登録 (バッチ実行・個別カレンダーへ振り分け)
 // ==========================================
 submitBtn.addEventListener('click', async () => {
   if (pendingSchedules.length === 0) return;
 
   const count = pendingSchedules.length;
-  const calId = calendarSelect.value || 'primary';
-  const calName = calendarSelect.options[calendarSelect.selectedIndex].text;
-
-  if (!confirm(`選択された ${count} 件のスケジュールを「${calName}」へ一括登録しますか？`)) {
+  if (!confirm(`選択された ${count} 件のスケジュールをそれぞれのカレンダーへ一括登録しますか？`)) {
     return;
   }
 
@@ -842,15 +974,19 @@ submitBtn.addEventListener('click', async () => {
       const [sH, sM] = startTimeStr.split(':').map(Number);
       const [eH, eM] = endTimeStr.split(':').map(Number);
 
+      const calObj = allCalendars.find(c => c.id === p.targetCalId);
+
       calendarEvents.push({
         id: 'local-' + Date.now() + Math.random(),
+        calId: p.targetCalId,
+        calName: calObj ? calObj.summary : 'カレンダー',
+        calColor: calObj ? calObj.backgroundColor : '#0284c7',
         title: p.title,
         dateStr: p.dateStr,
         startHour: sH,
         startMin: sM,
         endHour: eH,
-        endMin: eM,
-        category: 'work'
+        endMin: eM
       });
     });
 
@@ -865,12 +1001,13 @@ submitBtn.addEventListener('click', async () => {
 
   try {
     const promises = pendingSchedules.map(p => {
+      const targetCalId = p.targetCalId || selectedCalendarIds[0] || 'primary';
       const startTimeStr = formatTime(p.startSlot);
       const endTimeStr = formatTime(p.endSlot + 1);
       const startDateTime = `${p.dateStr}T${startTimeStr}:00+09:00`;
       const endDateTime = `${p.dateStr}T${endTimeStr}:00+09:00`;
 
-      return fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`, {
+      return fetch(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(targetCalId)}/events`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${accessToken}`,

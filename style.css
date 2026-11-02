@@ -97,21 +97,113 @@ header {
 }
 
 .calendar-select-wrap {
+  position: relative;
   display: flex;
   align-items: center;
-  gap: 4px;
-  background: var(--bg-card);
-  padding: 4px 8px;
-  border-radius: 6px;
-  border: 1px solid var(--border-color);
   flex: 1;
   min-width: 0;
 }
 
-.calendar-select-wrap label {
-  font-size: 0.72rem;
-  color: var(--text-muted);
+.btn-cal-filter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  width: 100%;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cal-count-badge {
+  background: #0284c7;
+  color: #fff;
+  font-size: 0.7rem;
+  padding: 1px 5px;
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.cal-dropdown-panel {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  width: 250px;
+  max-width: 85vw;
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  display: none;
+  flex-direction: column;
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.cal-dropdown-panel.open {
+  display: flex;
+}
+
+.cal-dropdown-header {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--border-color);
+  font-weight: 700;
+}
+
+.cal-checkbox-list {
+  display: flex;
+  flex-direction: column;
+  padding: 4px 0;
+}
+
+.cal-checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-size: 0.82rem;
+  transition: background 0.15s;
+}
+
+.cal-checkbox-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.cal-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.modal-select {
+  width: 100%;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 9px 12px;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  outline: none;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.modal-select option {
+  background: #1e293b;
+  color: #fff;
 }
 
 select {
