@@ -94,6 +94,9 @@ function initGoogleAuth() {
       localStorage.setItem('syncshift_token', accessToken);
       localStorage.setItem('syncshift_expire', expireTime.toString());
 
+      // ユーザーのメアドを取得して保存（次回以降のアカウント選択スキップ用）
+      fetchUserEmailAndSave();
+
       setConnectedUI();
       showToast('⚡ Googleカレンダーと同期完了！');
       
@@ -105,22 +108,53 @@ function initGoogleAuth() {
   checkAutoLogin();
 }
 
+async function fetchUserEmailAndSave() {
+  if (!accessToken) return;
+  try {
+    const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList/primary', {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+    if (res.ok) {
+      const data = await res.json();
+      if (data.id) {
+        localStorage.setItem('syncshift_email', data.id);
+        console.log('Saved account email for auto-login:', data.id);
+      }
+    }
+  } catch (e) {
+    console.warn('Could not fetch user email', e);
+  }
+}
+
 function setConnectedUI() {
   authBtn.classList.add('connected');
-  authBtnText.textContent = 'Google連携中 ✓';
+  const savedEmail = localStorage.getItem('syncshift_email');
+  if (savedEmail) {
+    const shortEmail = savedEmail.length > 15 ? savedEmail.substring(0, 12) + '...' : savedEmail;
+    authBtnText.textContent = `${shortEmail} ✓`;
+  } else {
+    authBtnText.textContent = 'Google連携中 ✓';
+  }
 }
 
 function checkAutoLogin() {
   const savedToken = localStorage.getItem('syncshift_token');
   const savedExpire = parseInt(localStorage.getItem('syncshift_expire') || '0', 10);
+  const savedEmail = localStorage.getItem('syncshift_email');
 
+  // トークンがまだ有効なら即座に復帰
   if (savedToken && Date.now() < savedExpire - 60000) {
     accessToken = savedToken;
     setConnectedUI();
     loadCalendarList();
     loadCalendarEvents();
   } else if (tokenClient) {
-    tokenClient.requestAccessToken({ prompt: '' });
+    // 期限切れの場合: 保存されたメアドをヒントに渡してサイレント再接続（選択ダイアログをスキップ！）
+    const requestConfig = { prompt: '' };
+    if (savedEmail) {
+      requestConfig.hint = savedEmail;
+    }
+    tokenClient.requestAccessToken(requestConfig);
   }
 }
 
@@ -129,7 +163,12 @@ authBtn.addEventListener('click', () => {
     showToast('Google SDK初期化中... 少々お待ちください');
     return;
   }
-  tokenClient.requestAccessToken({ prompt: accessToken ? '' : 'consent' });
+  const savedEmail = localStorage.getItem('syncshift_email');
+  const config = { prompt: accessToken ? '' : 'select_account' };
+  if (savedEmail && accessToken) {
+    config.hint = savedEmail;
+  }
+  tokenClient.requestAccessToken(config);
 });
 
 async function loadCalendarList() {
