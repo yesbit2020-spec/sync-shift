@@ -79,41 +79,80 @@ const modalSaveBtn = document.getElementById('modalSaveBtn');
 const modalDeleteBtn = document.getElementById('modalDeleteBtn');
 
 // ==========================================
-// Google Identity Services (GIS) 認証処理 & 自動再接続
+// Google Identity Services (GIS) 認証処理 & 自動再接続（永続化強化版）
 // ==========================================
 function initGoogleAuth() {
+  // まず即座にローカルキャッシュから復元（SDKの読み込みを待たない）
+  restoreLocalSession();
+
   if (typeof google === 'undefined') {
-    setTimeout(initGoogleAuth, 200);
+    setTimeout(initGoogleAuth, 300);
     return;
   }
 
-  tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: SCOPES,
-    callback: async (tokenResponse) => {
-      if (tokenResponse.error !== undefined) {
-        console.warn('Auto auth error:', tokenResponse.error);
-        return;
+  try {
+    tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id: CLIENT_ID,
+      scope: SCOPES,
+      callback: async (tokenResponse) => {
+        if (tokenResponse.error !== undefined) {
+          console.warn('Google Auth callback error:', tokenResponse.error);
+          // サイレント更新が弾かれた場合でも、保存データを勝手に破棄しない
+          return;
+        }
+        accessToken = tokenResponse.access_token;
+        
+        const expiresInMs = (tokenResponse.expires_in || 3600) * 1000;
+        const expireTime = Date.now() + expiresInMs;
+        localStorage.setItem('syncshift_token', accessToken);
+        localStorage.setItem('syncshift_expire', expireTime.toString());
+
+        // ユーザーのメアドを取得して保存
+        await fetchUserEmailAndSave();
+
+        setConnectedUI();
+        showToast('⚡ Googleカレンダーと同期完了！');
+        
+        await loadCalendarList();
+        await loadCalendarEvents();
+      },
+    });
+
+    // SDK初期化完了後のチェック
+    checkAutoLogin();
+  } catch (err) {
+    console.error('Failed to init tokenClient', err);
+  }
+}
+
+// 起動直後にローカルデータを復元する（0ミリ秒復元）
+function restoreLocalSession() {
+  const savedToken = localStorage.getItem('syncshift_token');
+  const savedEmail = localStorage.getItem('syncshift_email');
+  const savedCals = localStorage.getItem('syncshift_cached_cals');
+
+  if (savedEmail || savedToken) {
+    if (savedToken) accessToken = savedToken;
+    setConnectedUI();
+  }
+
+  if (savedCals) {
+    try {
+      allCalendars = JSON.parse(savedCals);
+      const savedSelected = JSON.parse(localStorage.getItem('syncshift_selected_cals') || '[]');
+      if (savedSelected.length > 0) {
+        selectedCalendarIds = savedSelected.filter(id => allCalendars.some(c => c.id === id));
       }
-      accessToken = tokenResponse.access_token;
-      
-      const expiresInMs = (tokenResponse.expires_in || 3600) * 1000;
-      const expireTime = Date.now() + expiresInMs;
-      localStorage.setItem('syncshift_token', accessToken);
-      localStorage.setItem('syncshift_expire', expireTime.toString());
-
-      // ユーザーのメアドを取得して保存（次回以降のアカウント選択スキップ用）
-      fetchUserEmailAndSave();
-
-      setConnectedUI();
-      showToast('⚡ Googleカレンダーと同期完了！');
-      
-      await loadCalendarList();
-      await loadCalendarEvents();
-    },
-  });
-
-  checkAutoLogin();
+      if (selectedCalendarIds.length === 0 && allCalendars.length > 0) {
+        const primaryCal = allCalendars.find(c => c.primary);
+        selectedCalendarIds = primaryCal ? [primaryCal.id] : [allCalendars[0].id];
+      }
+      renderCalDropdown();
+      updateCalFilterUI();
+    } catch (e) {
+      console.warn('Failed to parse cached cals', e);
+    }
+  }
 }
 
 async function fetchUserEmailAndSave() {
@@ -126,7 +165,7 @@ async function fetchUserEmailAndSave() {
       const data = await res.json();
       if (data.id) {
         localStorage.setItem('syncshift_email', data.id);
-        console.log('Saved account email for auto-login:', data.id);
+        setConnectedUI();
       }
     }
   } catch (e) {
@@ -138,7 +177,8 @@ function setConnectedUI() {
   authBtn.classList.add('connected');
   const savedEmail = localStorage.getItem('syncshift_email');
   if (savedEmail) {
-    const shortEmail = savedEmail.length > 15 ? savedEmail.substring(0, 12) + '...' : savedEmail;
+    const prefix = savedEmail.split('@')[0];
+    const shortEmail = prefix.length > 10 ? prefix.substring(0, 8) + '...' : prefix;
     authBtnText.textContent = `${shortEmail} ✓`;
   } else {
     authBtnText.textContent = 'Google連携中 ✓';
@@ -150,19 +190,19 @@ function checkAutoLogin() {
   const savedExpire = parseInt(localStorage.getItem('syncshift_expire') || '0', 10);
   const savedEmail = localStorage.getItem('syncshift_email');
 
-  // トークンがまだ有効なら即座に復帰
+  // トークンが有効期限内なら即同期
   if (savedToken && Date.now() < savedExpire - 60000) {
     accessToken = savedToken;
     setConnectedUI();
     loadCalendarList();
     loadCalendarEvents();
-  } else if (tokenClient) {
-    // 期限切れの場合: 保存されたメアドをヒントに渡してサイレント再接続（選択ダイアログをスキップ！）
-    const requestConfig = { prompt: '' };
-    if (savedEmail) {
-      requestConfig.hint = savedEmail;
+  } else if (tokenClient && savedEmail) {
+    // 期限切れの場合: バックグラウンドでサイレント更新を試みる
+    try {
+      tokenClient.requestAccessToken({ prompt: '', hint: savedEmail });
+    } catch (e) {
+      console.warn('Silent refresh prevented by browser', e);
     }
-    tokenClient.requestAccessToken(requestConfig);
   }
 }
 
@@ -173,7 +213,7 @@ authBtn.addEventListener('click', () => {
   }
   const savedEmail = localStorage.getItem('syncshift_email');
   const config = { prompt: accessToken ? '' : 'select_account' };
-  if (savedEmail && accessToken) {
+  if (savedEmail) {
     config.hint = savedEmail;
   }
   tokenClient.requestAccessToken(config);
@@ -186,6 +226,10 @@ async function loadCalendarList() {
     const res = await fetch('https://www.googleapis.com/calendar/v3/users/me/calendarList', {
       headers: { Authorization: `Bearer ${accessToken}` }
     });
+    if (res.status === 401) {
+      handleAuthExpired();
+      return;
+    }
     const data = await res.json();
     if (data.items && data.items.length > 0) {
       allCalendars = data.items.map((cal, idx) => ({
@@ -195,7 +239,10 @@ async function loadCalendarList() {
         backgroundColor: cal.backgroundColor || getFallbackColor(idx)
       }));
 
-      // localStorageから以前の選択状態を復元（なければprimaryまたは先頭2件をデフォルト選択）
+      // カレンダー一覧をキャッシュ保存
+      localStorage.setItem('syncshift_cached_cals', JSON.stringify(allCalendars));
+
+      // localStorageから以前の選択状態を復元
       const savedSelected = JSON.parse(localStorage.getItem('syncshift_selected_cals') || '[]');
       if (savedSelected.length > 0) {
         selectedCalendarIds = savedSelected.filter(id => allCalendars.some(c => c.id === id));
@@ -210,6 +257,16 @@ async function loadCalendarList() {
     }
   } catch (err) {
     console.error('Failed to load calendars', err);
+  }
+}
+
+// 認証が期限切れだった場合の自動ハンドラ
+function handleAuthExpired() {
+  console.warn('Access token expired. Requesting silent refresh or prompt.');
+  const savedEmail = localStorage.getItem('syncshift_email');
+  if (tokenClient && savedEmail) {
+    // サイレント更新を試行
+    tokenClient.requestAccessToken({ prompt: '', hint: savedEmail });
   }
 }
 
