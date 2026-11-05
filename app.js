@@ -11,8 +11,8 @@ let tokenClient = null;
 let accessToken = null;
 
 // === カレンダー設定 ===
-const START_HOUR = 7;
-const END_HOUR = 24; // 7:00 〜 24:00 (17時間)
+const START_HOUR = 9; // 9:00 開始に最適化
+const END_HOUR = 24; // 9:00 〜 24:00 (15時間)
 const SLOT_MINUTES = 30; // 30分単位
 const SLOTS_PER_HOUR = 60 / SLOT_MINUTES;
 const TOTAL_SLOTS = (END_HOUR - START_HOUR) * SLOTS_PER_HOUR;
