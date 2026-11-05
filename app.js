@@ -519,17 +519,15 @@ function renderCommittedEventsForDay(colEl, dateStr) {
     }
 
     block.innerHTML = `
-      <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:20px;">
+      <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
         <span style="font-size:0.6rem; opacity:0.85; display:block;">${evt.calName}</span>
         ${evt.title}
       </div>
       <div style="font-size:0.65rem;">${formatTime(startSlots)} - ${formatTime(startSlots + durationSlots)}</div>
-      <button class="del-btn" title="削除" onclick="deleteCalendarEvent('${evt.id}', '${evt.calId}', event)">×</button>
     `;
     
     // タップで詳細＆削除モーダルを開く
-    block.addEventListener('click', (e) => {
-      if (e.target.closest('.del-btn')) return;
+    block.addEventListener('click', () => {
       openEditModal('committed', {
         id: evt.id,
         calId: evt.calId,
@@ -563,16 +561,15 @@ function renderPendingSchedulesForDay(colEl, dateStr) {
     block.style.top = `${topPx}px`;
     block.style.height = `${heightPx}px`;
     block.innerHTML = `
-      <div style="padding-right:20px;">
+      <div>
         <span class="block-badge" style="background:#0284c7;">${calLabel}</span>
         <div style="font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.title}</div>
       </div>
       <div style="font-size:0.65rem;">${startTimeStr} - ${endTimeStr}</div>
-      <button class="del-btn" title="取り消し" onclick="removePendingSchedule('${p.id}', event)">×</button>
     `;
     
-    block.addEventListener('click', (e) => {
-      if (e.target.closest('.del-btn')) return;
+    // タップで編集・削除モーダルを開く
+    block.addEventListener('click', () => {
       openEditModal('edit', p);
     });
 
