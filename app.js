@@ -811,10 +811,14 @@ function finishDragSelection() {
     const minSlot = Math.min(dragStart.slotIndex, dragCurrent.slotIndex);
     const maxSlot = Math.max(dragStart.slotIndex, dragCurrent.slotIndex);
 
-    // デフォルト登録先は現在選択中の1つ目（またはプライマリ）
-    const defaultCalId = selectedCalendarIds[0] || (allCalendars[0] ? allCalendars[0].id : 'primary');
+    // デフォルト登録先: 上部で選ばれているカレンダー（最後に選択した、またはチェックが入っているカレンダー）
+    const defaultCalId = (selectedCalendarIds && selectedCalendarIds.length > 0)
+      ? selectedCalendarIds[selectedCalendarIds.length - 1] 
+      : (allCalendars[0] ? allCalendars[0].id : 'primary');
+
     const calObj = allCalendars.find(c => c.id === defaultCalId);
-    const defaultTitle = calObj ? calObj.summary.split(' ')[0] + ' 予定' : '予定';
+    // カレンダー名そのものを件名デフォルトにセット（「 (メイン)」などのサフィックスは綺麗に除外）
+    const rawName = calObj ? calObj.summary.replace(' (メイン)', '').trim() : '予定';
 
     const newPendingData = {
       id: 'pending-' + Date.now() + Math.random(),
@@ -822,7 +826,7 @@ function finishDragSelection() {
       dateStr: dragStart.dateStr,
       startSlot: minSlot,
       endSlot: maxSlot,
-      title: defaultTitle,
+      title: rawName,
       targetCalId: defaultCalId
     };
 
@@ -887,11 +891,20 @@ function openEditModal(mode, data) {
   });
 
   if (mode === 'create') {
-    modalTitle.textContent = '予定の件名とカレンダーを選択';
+    modalTitle.textContent = '予定の作成';
     modalDeleteBtn.style.display = 'none';
     modalSaveBtn.textContent = '決定 (Enter)';
     eventTitleInput.disabled = false;
     eventCalSelect.disabled = false;
+
+    // カレンダー切り替え時に件名がデフォルトのままなら自動追従させる
+    eventCalSelect.onchange = () => {
+      const selectedCal = allCalendars.find(c => c.id === eventCalSelect.value);
+      if (selectedCal) {
+        eventTitleInput.value = selectedCal.summary.replace(' (メイン)', '').trim();
+        eventTitleInput.select();
+      }
+    };
   } else if (mode === 'edit') {
     modalTitle.textContent = '未登録予定の編集';
     modalDeleteBtn.style.display = 'block';
