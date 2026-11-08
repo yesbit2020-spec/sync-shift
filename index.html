@@ -11,7 +11,7 @@
   <meta name="theme-color" content="#1e293b">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <link rel="stylesheet" href="style.css?v=2.2">
+  <link rel="stylesheet" href="style.css?v=2.3">
   <!-- Google Identity Services -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
@@ -132,16 +132,20 @@
         </div>
       </div>
       <div class="modal-footer">
-        <button class="btn-copy" id="modalCopyBtn">📋 翌週にコピー</button>
-        <button class="btn-danger" id="modalDeleteBtn" style="display:none;">この予定を削除</button>
-        <button class="btn-secondary" id="modalCancelBtn">キャンセル</button>
-        <button class="btn-primary" id="modalSaveBtn">決定 (Enter)</button>
+        <div class="modal-footer-actions">
+          <button type="button" class="btn-copy" id="modalCopyBtn">📋 翌週にコピー</button>
+          <button type="button" class="btn-danger" id="modalDeleteBtn" style="display:none;">この予定を削除</button>
+        </div>
+        <div class="modal-footer-buttons">
+          <button type="button" class="btn-secondary" id="modalCancelBtn">キャンセル</button>
+          <button type="button" class="btn-primary" id="modalSaveBtn">決定 (Enter)</button>
+        </div>
       </div>
     </div>
   </div>
 
   <div id="toast"></div>
 
-  <script src="app.js?v=2.2"></script>
+  <script src="app.js?v=2.3"></script>
 </body>
 </html>

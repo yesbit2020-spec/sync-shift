@@ -1004,16 +1004,16 @@ function openEditModal(mode, data) {
     };
   } else if (mode === 'edit') {
     modalTitle.textContent = '未登録予定の編集';
-    modalDeleteBtn.style.display = 'block';
-    if (modalCopyBtn) modalCopyBtn.style.display = 'block';
+    modalDeleteBtn.style.display = 'inline-block';
+    if (modalCopyBtn) modalCopyBtn.style.display = 'inline-block';
     modalDeleteBtn.textContent = 'この予定を削除';
     modalSaveBtn.textContent = '変更を保存';
     eventTitleInput.disabled = false;
     eventCalSelect.disabled = false;
   } else if (mode === 'committed') {
     modalTitle.textContent = 'Googleカレンダーの予定';
-    modalDeleteBtn.style.display = 'block';
-    if (modalCopyBtn) modalCopyBtn.style.display = 'block';
+    modalDeleteBtn.style.display = 'inline-block';
+    if (modalCopyBtn) modalCopyBtn.style.display = 'inline-block';
     modalDeleteBtn.textContent = 'Googleカレンダーから削除';
     modalSaveBtn.textContent = '閉じる';
     eventTitleInput.disabled = true;
