@@ -260,6 +260,41 @@ select option {
   white-space: nowrap;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.btn-reload {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  color: var(--accent);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.btn-reload:hover {
+  background: rgba(56, 189, 248, 0.1);
+  border-color: var(--accent);
+}
+
+.btn-reload.spinning svg {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  100% { transform: rotate(360deg); }
+}
+
 .btn-auth {
   display: flex;
   align-items: center;

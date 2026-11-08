@@ -19,19 +19,32 @@
 
   <!-- ヘッダー -->
   <header>
-    <!-- 上段: アプリ名 & Google連携ボタン -->
+    <!-- 上段: アプリ名 & Google連携ボタン / 再同期ボタン -->
     <div class="header-top-row">
       <div class="brand-group">
         <img src="assets/images/logo.png" alt="SYNC-SHIFT Logo" class="brand-logo-img">
         <h1 class="app-title">Google Sync Shift</h1>
       </div>
 
-      <button class="btn-auth" id="authBtn">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
-        </svg>
-        <span id="authBtnText">Google連携</span>
-      </button>
+      <div class="header-actions">
+        <!-- 再同期（リロード）ボタン -->
+        <button class="btn-reload" id="reloadBtn" title="カレンダーを再同期">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="23 4 23 10 17 10"></polyline>
+            <polyline points="1 20 1 14 7 14"></polyline>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+          <span class="reload-text">再同期</span>
+        </button>
+
+        <!-- Google連携ボタン -->
+        <button class="btn-auth" id="authBtn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12.545,10.239v3.821h5.445c-0.712,2.315-2.647,3.972-5.445,3.972c-3.332,0-6.033-2.701-6.033-6.032s2.701-6.032,6.033-6.032c1.498,0,2.866,0.549,3.921,1.453l2.814-2.814C17.503,2.988,15.139,2,12.545,2C7.021,2,2.543,6.477,2.543,12s4.478,10,10.002,10c8.396,0,10.249-7.85,9.426-11.748L12.545,10.239z"/>
+          </svg>
+          <span id="authBtnText">Google連携</span>
+        </button>
+      </div>
     </div>
 
     <!-- 下段（操作バー）: 週送りナビ & 表示カレンダー選択 -->

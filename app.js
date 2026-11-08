@@ -66,6 +66,7 @@ const selectionInfo = document.getElementById('selectionInfo');
 const toast = document.getElementById('toast');
 const authBtn = document.getElementById('authBtn');
 const authBtnText = document.getElementById('authBtnText');
+const reloadBtn = document.getElementById('reloadBtn');
 
 // モーダルDOM要素
 const modalOverlay = document.getElementById('modalOverlay');
@@ -130,6 +131,7 @@ function restoreLocalSession() {
   const savedToken = localStorage.getItem('syncshift_token');
   const savedEmail = localStorage.getItem('syncshift_email');
   const savedCals = localStorage.getItem('syncshift_cached_cals');
+  const savedEvents = localStorage.getItem('syncshift_cached_events');
 
   if (savedEmail || savedToken) {
     if (savedToken) accessToken = savedToken;
@@ -151,6 +153,16 @@ function restoreLocalSession() {
       updateCalFilterUI();
     } catch (e) {
       console.warn('Failed to parse cached cals', e);
+    }
+  }
+
+  // 以前取得した予定データがあれば即座に表示（画面が空っぽになるのを完全防止）
+  if (savedEvents) {
+    try {
+      calendarEvents = JSON.parse(savedEvents);
+      renderWeek();
+    } catch (e) {
+      console.warn('Failed to parse cached events', e);
     }
   }
 }
@@ -218,6 +230,40 @@ authBtn.addEventListener('click', () => {
   }
   tokenClient.requestAccessToken(config);
 });
+
+// ==========================================
+// 再同期（リロード）ボタンのワンタップ処理
+// ==========================================
+if (reloadBtn) {
+  reloadBtn.addEventListener('click', async () => {
+    reloadBtn.classList.add('spinning');
+    showToast('カレンダーと同期中...');
+
+    const savedExpire = parseInt(localStorage.getItem('syncshift_expire') || '0', 10);
+    const savedEmail = localStorage.getItem('syncshift_email');
+
+    // トークンが切れている場合は、ユーザーのタップを契機にGoogleへ即時更新リクエスト
+    if (!accessToken || Date.now() >= savedExpire - 60000) {
+      if (tokenClient) {
+        const config = { prompt: '' };
+        if (savedEmail) config.hint = savedEmail;
+        tokenClient.requestAccessToken(config);
+      } else {
+        initGoogleAuth();
+      }
+    } else {
+      // トークンがまだ生きている場合は直接データ再取得
+      await loadCalendarList();
+      await loadCalendarEvents();
+      reloadBtn.classList.remove('spinning');
+      showToast('⚡ 最新の予定に更新しました！');
+    }
+
+    setTimeout(() => {
+      reloadBtn.classList.remove('spinning');
+    }, 2000);
+  });
+}
 
 // カレンダー一覧の読み込み（複数対応）
 async function loadCalendarList() {
@@ -384,6 +430,9 @@ async function loadCalendarEvents() {
         endMin: end.getMinutes()
       });
     });
+
+    // 取得した予定データをローカルキャッシュ保存（次回起動時も即表示）
+    localStorage.setItem('syncshift_cached_events', JSON.stringify(calendarEvents));
 
     renderWeek();
   } catch (err) {
