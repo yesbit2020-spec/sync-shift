@@ -625,8 +625,10 @@ function renderCommittedEventsForDay(colEl, dateStr) {
       <div style="font-size:0.65rem;">${formatTime(startSlots)} - ${formatTime(startSlots + durationSlots)}</div>
     `;
     
-    // タップで詳細＆削除モーダルを開く
-    block.addEventListener('click', () => {
+    // タップで詳細＆削除モーダルを開く（PCクリック & スマホ直接タッチ両対応）
+    const handleBlockOpen = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
       openEditModal('committed', {
         id: evt.id,
         calId: evt.calId,
@@ -636,6 +638,12 @@ function renderCommittedEventsForDay(colEl, dateStr) {
         startSlot: startSlots,
         endSlot: startSlots + durationSlots - 1
       });
+    };
+
+    block.addEventListener('click', handleBlockOpen);
+    block.addEventListener('touchend', (e) => {
+      // スクロール中ではなく単純タップの場合のみ開く
+      handleBlockOpen(e);
     });
 
     colEl.appendChild(block);
@@ -667,9 +675,16 @@ function renderPendingSchedulesForDay(colEl, dateStr) {
       <div style="font-size:0.65rem;">${startTimeStr} - ${endTimeStr}</div>
     `;
     
-    // タップで編集・削除モーダルを開く
-    block.addEventListener('click', () => {
+    // タップで編集・削除モーダルを開く（PCクリック & スマホ直接タッチ両対応）
+    const handlePendingOpen = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
       openEditModal('edit', p);
+    };
+
+    block.addEventListener('click', handlePendingOpen);
+    block.addEventListener('touchend', (e) => {
+      handlePendingOpen(e);
     });
 
     colEl.appendChild(block);

@@ -604,6 +604,15 @@ select option {
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
   overflow: hidden;
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.committed-block * {
+  pointer-events: none; /* 子要素でタッチが途切れるのを完全防止 */
+}
+
+.pending-block * {
+  pointer-events: none; /* 子要素でタッチが途切れるのを完全防止 */
 }
 
 .committed-block .del-btn {
