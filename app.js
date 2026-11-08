@@ -78,6 +78,7 @@ const modalCloseBtn = document.getElementById('modalCloseBtn');
 const modalCancelBtn = document.getElementById('modalCancelBtn');
 const modalSaveBtn = document.getElementById('modalSaveBtn');
 const modalDeleteBtn = document.getElementById('modalDeleteBtn');
+const modalCopyBtn = document.getElementById('modalCopyBtn');
 
 // ==========================================
 // Google Identity Services (GIS) 認証処理 & 自動再接続（永続化強化版）
@@ -988,6 +989,7 @@ function openEditModal(mode, data) {
   if (mode === 'create') {
     modalTitle.textContent = '予定の作成';
     modalDeleteBtn.style.display = 'none';
+    if (modalCopyBtn) modalCopyBtn.style.display = 'none';
     modalSaveBtn.textContent = '決定 (Enter)';
     eventTitleInput.disabled = false;
     eventCalSelect.disabled = false;
@@ -1003,6 +1005,7 @@ function openEditModal(mode, data) {
   } else if (mode === 'edit') {
     modalTitle.textContent = '未登録予定の編集';
     modalDeleteBtn.style.display = 'block';
+    if (modalCopyBtn) modalCopyBtn.style.display = 'block';
     modalDeleteBtn.textContent = 'この予定を削除';
     modalSaveBtn.textContent = '変更を保存';
     eventTitleInput.disabled = false;
@@ -1010,6 +1013,7 @@ function openEditModal(mode, data) {
   } else if (mode === 'committed') {
     modalTitle.textContent = 'Googleカレンダーの予定';
     modalDeleteBtn.style.display = 'block';
+    if (modalCopyBtn) modalCopyBtn.style.display = 'block';
     modalDeleteBtn.textContent = 'Googleカレンダーから削除';
     modalSaveBtn.textContent = '閉じる';
     eventTitleInput.disabled = true;
@@ -1076,6 +1080,43 @@ modalDeleteBtn.addEventListener('click', () => {
     deleteCalendarEvent(data.id, data.calId);
   }
 });
+
+// モーダル内「翌週にコピー」ボタン
+if (modalCopyBtn) {
+  modalCopyBtn.addEventListener('click', () => {
+    if (!editingTarget) return;
+    const { data } = editingTarget;
+
+    // 現在の日付（YYYY-MM-DD）に +7日 した日付を計算
+    const parts = data.dateStr.split('-').map(Number);
+    const currentDate = new Date(parts[0], parts[1] - 1, parts[2]);
+    const nextWeekDate = new Date(currentDate);
+    nextWeekDate.setDate(currentDate.getDate() + 7);
+    const nextDateStr = formatDate(nextWeekDate);
+
+    // 翌週の未登録予定データを作成
+    const copiedPendingData = {
+      id: 'pending-' + Date.now() + Math.random(),
+      dayIndex: data.dayIndex !== undefined ? data.dayIndex : 0,
+      dateStr: nextDateStr,
+      startSlot: data.startSlot,
+      endSlot: data.endSlot,
+      title: data.title,
+      targetCalId: data.targetCalId || data.calId || (selectedCalendarIds[0] || 'primary')
+    };
+
+    pendingSchedules.push(copiedPendingData);
+
+    closeEditModal();
+
+    // カレンダー表示を自動的に「翌週」へ切り替え！
+    currentWeekOffset++;
+    renderWeek();
+    if (accessToken) loadCalendarEvents();
+
+    showToast(`⚡ 翌週（${nextDateStr}）へ予定をコピーしました！`);
+  });
+}
 
 modalSaveBtn.addEventListener('click', saveEditModal);
 modalCancelBtn.addEventListener('click', closeEditModal);

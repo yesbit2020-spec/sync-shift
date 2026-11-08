@@ -830,6 +830,24 @@ select option {
 .btn-danger:hover {
   background: #b91c1c;
 }
+
+.btn-copy {
+  background: rgba(2, 132, 199, 0.2);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  margin-right: auto;
+  transition: all 0.2s;
+}
+
+.btn-copy:hover {
+  background: var(--accent);
+  color: #fff;
+}
 .btn-secondary:hover {
   color: var(--text-main);
   border-color: var(--text-muted);
