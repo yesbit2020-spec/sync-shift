@@ -232,36 +232,74 @@ authBtn.addEventListener('click', () => {
 });
 
 // ==========================================
-// 再同期（リロード）ボタンのワンタップ処理
+// 再同期（リロード）ボタンのワンタップ処理（確実復旧版）
 // ==========================================
 if (reloadBtn) {
   reloadBtn.addEventListener('click', async () => {
     reloadBtn.classList.add('spinning');
-    showToast('カレンダーと同期中...');
 
     const savedExpire = parseInt(localStorage.getItem('syncshift_expire') || '0', 10);
     const savedEmail = localStorage.getItem('syncshift_email');
+    const isTokenValid = accessToken && (Date.now() < savedExpire - 60000);
 
-    // トークンが切れている場合は、ユーザーのタップを契機にGoogleへ即時更新リクエスト
-    if (!accessToken || Date.now() >= savedExpire - 60000) {
-      if (tokenClient) {
-        const config = { prompt: '' };
-        if (savedEmail) config.hint = savedEmail;
-        tokenClient.requestAccessToken(config);
-      } else {
-        initGoogleAuth();
+    // トークンがまだ有効なら、そのまま即座にデータ取得
+    if (isTokenValid) {
+      showToast('カレンダーと同期中...');
+      try {
+        await loadCalendarList();
+        await loadCalendarEvents();
+        showToast('⚡ 最新の予定に更新しました！');
+      } catch (err) {
+        console.error(err);
+        showToast('同期エラーが発生しました');
+      } finally {
+        reloadBtn.classList.remove('spinning');
       }
-    } else {
-      // トークンがまだ生きている場合は直接データ再取得
-      await loadCalendarList();
-      await loadCalendarEvents();
-      reloadBtn.classList.remove('spinning');
-      showToast('⚡ 最新の予定に更新しました！');
+      return;
     }
 
-    setTimeout(() => {
+    // トークンが切れている場合: Google SDKを通じて確実にトークンを再取得
+    showToast('Google認証を更新中...');
+    if (!tokenClient) {
+      initGoogleAuth();
+    }
+
+    if (tokenClient) {
+      // コールバックを一時的に再同期専用にフック
+      const originalCallback = tokenClient.callback;
+      tokenClient.callback = async (tokenResponse) => {
+        tokenClient.callback = originalCallback; // 元に戻す
+
+        if (tokenResponse.error !== undefined) {
+          console.warn('Token refresh error:', tokenResponse.error);
+          reloadBtn.classList.remove('spinning');
+          showToast('再認証が必要です。「Google連携」をタップしてください');
+          return;
+        }
+
+        accessToken = tokenResponse.access_token;
+        const expiresInMs = (tokenResponse.expires_in || 3600) * 1000;
+        localStorage.setItem('syncshift_token', accessToken);
+        localStorage.setItem('syncshift_expire', (Date.now() + expiresInMs).toString());
+
+        setConnectedUI();
+        await loadCalendarList();
+        await loadCalendarEvents();
+
+        reloadBtn.classList.remove('spinning');
+        showToast('⚡ 最新の予定に更新しました！');
+      };
+
+      // スマホで弾かれないよう、記憶したメアドを指定してリクエスト
+      const reqConfig = {};
+      if (savedEmail) {
+        reqConfig.hint = savedEmail;
+      }
+      tokenClient.requestAccessToken(reqConfig);
+    } else {
       reloadBtn.classList.remove('spinning');
-    }, 2000);
+      showToast('Google SDK初期化中... 少々お待ちください');
+    }
   });
 }
 
